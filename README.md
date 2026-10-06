@@ -1,3 +1,5 @@
+> **Fork note:** this is a research fork of Daniel Franzen's solution. See [FORK.md](FORK.md) for credits and the changes made here.
+
 # ARC-AGI-3: Daniel Franzen's Milestone 2 solution
 
 This repository contains my solution for the **ARC-AGI-3 Progress Prize #2**. **For a detailed explanation of the approach, changes, and experiments, see the [write-up](WRITEUP.md).**
