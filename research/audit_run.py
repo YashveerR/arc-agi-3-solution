@@ -311,14 +311,26 @@ def report(meta: dict, runs: list[Run]) -> str:
         ],
     ))
     if parts["cap_cut"] > 0.005:
-        L.append(f"\n(The official cap removed a further {parts['cap_cut']:.2f} points on average.)")
-    perfect_eff = parts["earned"] + parts["efficiency"] - parts["bonus"]
+        L.append(
+            f"\nThe official cap removed {parts['cap_cut']:.2f} points on average: a game can never score more "
+            f"than the weight of the levels it completed, so beating the human baseline only offsets slow "
+            f"levels and never makes up for unfinished ones."
+        )
+    # Completing every finished level at exactly human pace scores the weight
+    # share of the completed levels, which is also what the cap allows.
+    perfect_eff = 100.0 - parts["stalled"] - parts["unreached"]
     L.append("")
-    L.append(
-        f"If every level these runs completed had been done in exactly the human number of actions, "
-        f"the score would be about **{perfect_eff:.1f}** instead of {parts['earned']:.1f}. "
-        f"Everything else that is missing comes from levels that were never completed."
-    )
+    if perfect_eff - parts["earned"] < 0.05:
+        L.append(
+            f"These runs already score what human-pace play on their completed levels would "
+            f"({perfect_eff:.1f}). Everything that is missing comes from levels that were never completed."
+        )
+    else:
+        L.append(
+            f"If every level these runs completed had been done in exactly the human number of actions, "
+            f"the score would be about **{perfect_eff:.1f}** instead of {parts['earned']:.1f}. "
+            f"Everything else that is missing comes from levels that were never completed."
+        )
     L.append("")
 
     # ---------------------------------------------------------- 3. efficiency
