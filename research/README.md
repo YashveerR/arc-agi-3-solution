@@ -1,6 +1,9 @@
 # Research tools
 
-Analysis scripts for this fork. None of them change what a submission does.
+- [`audit_run.py`](#audit_runpy-where-actions-and-tokens-go): analysis of a run, no effect on submissions.
+- [`fresh_start/`](fresh_start/README.md): the fresh-start-when-stuck change, its notebook cell and test evidence.
+- [`tests/`](tests/README.md): offline tests (no GPU).
+- [`results/`](results/): audit reports of runs, starting with the 2026-10-08 baseline.
 
 ## `audit_run.py`: where actions and tokens go
 
@@ -14,12 +17,14 @@ Reads the `benchmark.json` that every TAAF / Duck-harness run writes to its job 
 6. **A per-game table.**
 7. **Same game, different pass.** How much a game's result swings between passes, and what the score would be if each game got its best pass.
 8. **When a level counts as stuck.** How many tokens completed levels needed, and how often a level that has crossed a token threshold is still completed later. That completion rate is the bar any "get unstuck" change has to beat.
+9. **Fresh starts.** For runs with the [fresh-start patch](fresh_start/README.md): every restart, whether the level was later completed, and (with `--baseline`) the baseline's completion rate for levels past the same threshold.
 
 Standard library only.
 
 ```bash
 python3 research/audit_run.py /path/to/run_dir              # report to stdout
 python3 research/audit_run.py /path/to/run_dir --out audit/  # also writes report.md and levels.csv
+python3 research/audit_run.py /path/to/run_dir --baseline research/results/2026-10-08-baseline/benchmark.json
 ```
 
 ### On Kaggle

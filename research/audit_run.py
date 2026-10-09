@@ -71,6 +71,8 @@ class Run:
     total_tokens: int
     levels: list[Level] = field(default_factory=list)
     trailing_tokens: int = 0  # generated after the last action
+    # (level, tokens on that level when it fired), from "fresh_starts=" in the note
+    fresh_starts: list[tuple[int, int]] = field(default_factory=list)
 
     # -- decomposition, in percentage points of the game score
     @property
@@ -129,6 +131,20 @@ def _total_tokens(raw: dict, history_tokens: int) -> int:
     return int(m.group(1)) if m else history_tokens
 
 
+def _fresh_starts(raw: dict) -> list[tuple[int, int]]:
+    """Fresh starts recorded by the fresh-start patch as level@tokens pairs."""
+    note = raw.get("solver_note") or ""
+    m = re.search(r"fresh_starts=([0-9@,]+)", note)
+    if not m:
+        return []
+    events = []
+    for item in m.group(1).split(","):
+        level, _, tokens = item.partition("@")
+        if level.isdigit() and tokens.isdigit():
+            events.append((int(level), int(tokens)))
+    return events
+
+
 def load_runs(path: Path) -> tuple[dict, list[Run]]:
     bench_path = path / "benchmark.json" if path.is_dir() else path
     bench = json.loads(bench_path.read_text())
@@ -154,6 +170,7 @@ def load_runs(path: Path) -> tuple[dict, list[Run]]:
             total_tokens=_total_tokens(raw, hist_tokens),
         )
         run.trailing_tokens = max(0, run.total_tokens - hist_tokens)
+        run.fresh_starts = _fresh_starts(raw)
         # History is in order and actions_per_level partitions it exactly, so a
         # running offset attributes each action (and the tokens generated before
         # it) to the level it was taken on.
@@ -229,6 +246,23 @@ def quantile(xs, q: float) -> float:
     return xs[lo] + (xs[hi] - xs[lo]) * (k - lo)
 
 
+def crossing(runs: list["Run"], threshold: int) -> tuple[int, int, float]:
+    """Levels that used more than `threshold` tokens before being completed or
+    abandoned: (how many crossed, how many of those were later completed,
+    tokens spent past the threshold on levels never completed)."""
+    done_late = stuck_past = 0
+    wasted = 0.0
+    for r in runs:
+        for lv in r.levels:
+            if lv.completed and lv.actions > 0 and lv.tokens > threshold:
+                done_late += 1
+        lv = r.stalled_level
+        if lv is not None and lv.tokens > threshold:
+            stuck_past += 1
+            wasted += lv.tokens - threshold
+    return done_late + stuck_past, done_late, wasted
+
+
 def table(headers: list[str], rows: list[list]) -> str:
     out = ["| " + " | ".join(headers) + " |", "|" + "|".join("---" for _ in headers) + "|"]
     out += ["| " + " | ".join(str(c) for c in r) + " |" for r in rows]
@@ -238,7 +272,7 @@ def table(headers: list[str], rows: list[list]) -> str:
 # --------------------------------------------------------------------------- report
 
 
-def report(meta: dict, runs: list[Run]) -> str:
+def report(meta: dict, runs: list[Run], baseline_runs: list[Run] | None = None) -> str:
     if not runs:
         return "No scorable runs found."
     by_game: dict[str, list[Run]] = defaultdict(list)
@@ -497,10 +531,7 @@ def report(meta: dict, runs: list[Run]) -> str:
         L.append("")
         rows = []
         for T in (40_000, 60_000, 80_000, 100_000):
-            done_late = sum(1 for t in comp_tok if t > T)
-            stuck_past = sum(1 for t in stall_tok if t > T)
-            crossed = done_late + stuck_past
-            wasted = sum(t - T for t in stall_tok if t > T)
+            crossed, done_late, wasted = crossing(runs, T)
             rows.append([f"{T // 1000}k", crossed, f"{done_late} ({pct(done_late, crossed)})",
                          f"{wasted / 1e6:.2f}M ({pct(wasted, tot_tok)})"])
         L.append("A level *crosses* a threshold when it uses more tokens than that without being completed yet. "
@@ -509,6 +540,63 @@ def report(meta: dict, runs: list[Run]) -> str:
         L.append(table(["threshold", "levels that crossed it", "of those, later completed",
                         "tokens spent past it on levels never completed"], rows))
         L.append("")
+
+    # ---------------------------------------------------------- 9. fresh starts
+    L.append("## 9. Fresh starts")
+    L.append("")
+    events = [(r, level, tok) for r in runs for level, tok in r.fresh_starts]
+    if not events:
+        L.append("No fresh starts recorded: the fresh-start switch was off, or no level reached its threshold.")
+        L.append("")
+        return "\n".join(L)
+    restarted: dict[tuple[str, str, int], Run] = {}
+    fired_at: dict[tuple[str, str, int], list[int]] = defaultdict(list)
+    for r, level, tok in events:
+        key = (r.game_id, r.pass_id, level)
+        restarted[key] = r
+        fired_at[key].append(tok)
+    completed = [k for k, r in restarted.items() if r.levels_completed >= k[2]]
+    toks = [tok for _, _, tok in events]
+    L.append(
+        f"{len(events)} fresh starts on {len(restarted)} levels, in "
+        f"{len({(r.game_id, r.pass_id) for r, _, _ in events})} of {len(runs)} runs. They fired after "
+        f"{min(toks) / 1000:.0f}k–{max(toks) / 1000:.0f}k generated tokens on the level."
+    )
+    L.append("")
+    L.append(f"**{len(completed)} of {len(restarted)} restarted levels ({pct(len(completed), len(restarted))}) "
+             f"were later completed.**")
+    L.append("")
+    ref_T = (min(toks) // 1000) * 1000
+    if baseline_runs:
+        crossed, done_late, _ = crossing(baseline_runs, ref_T)
+        L.append(
+            f"For comparison, in the baseline run levels that went past {ref_T // 1000}k tokens without being "
+            f"completed were later completed {done_late} of {crossed} times ({pct(done_late, crossed)}). "
+            f"That is the rate a fresh start has to beat."
+        )
+    else:
+        L.append(
+            f"Run with `--baseline <baseline benchmark.json>` to compare with how often levels past "
+            f"{ref_T // 1000}k tokens were completed without a fresh start."
+        )
+    L.append("")
+    rows = []
+    for key in sorted(restarted):
+        game, pass_id, level = key
+        r = restarted[key]
+        lv = r.levels[level - 1] if level - 1 < len(r.levels) else None
+        done = r.levels_completed >= level
+        rows.append([
+            game.split("-")[0], pass_id, level,
+            ", ".join(f"{t / 1000:.0f}k" for t in fired_at[key]),
+            "yes" if done else "no",
+            fmt(lv.ratio, 2) if (lv is not None and done) else "",
+            fmt(lv.score, 0) if (lv is not None and done) else "",
+            f"{lv.tokens / 1000:.0f}k" if lv is not None else "",
+        ])
+    L.append(table(["game", "pass", "level", "fired at", "completed later", "actions vs human",
+                    "level score", "tokens on level (total)"], rows))
+    L.append("")
     return "\n".join(L)
 
 
@@ -516,21 +604,25 @@ def write_levels_csv(runs: list[Run], path: Path) -> None:
     with path.open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["game_id", "pass", "level", "weight", "baseline", "actions", "completed", "stalled_here",
-                    "level_score", "actions_vs_human", "tokens", "resets"])
+                    "level_score", "actions_vs_human", "tokens", "resets", "fresh_starts"])
         for r in runs:
             for lv in r.levels:
                 w.writerow([r.game_id, r.pass_id, lv.index + 1, lv.weight, lv.baseline, lv.actions,
                             int(lv.completed), int(lv.index == r.levels_completed and not lv.completed),
-                            f"{lv.score:.3f}", f"{lv.ratio:.3f}" if lv.completed else "", lv.tokens, lv.resets])
+                            f"{lv.score:.3f}", f"{lv.ratio:.3f}" if lv.completed else "", lv.tokens, lv.resets,
+                            sum(1 for level, _ in r.fresh_starts if level == lv.index + 1)])
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("run", type=Path, help="run directory containing benchmark.json, or the file itself")
     ap.add_argument("--out", type=Path, help="directory to write report.md and levels.csv")
+    ap.add_argument("--baseline", type=Path,
+                    help="baseline run (directory or benchmark.json) to compare fresh starts against")
     args = ap.parse_args(argv)
     meta, runs = load_runs(args.run)
-    text = report(meta, runs)
+    baseline_runs = load_runs(args.baseline)[1] if args.baseline else None
+    text = report(meta, runs, baseline_runs)
     print(text)
     if args.out:
         args.out.mkdir(parents=True, exist_ok=True)

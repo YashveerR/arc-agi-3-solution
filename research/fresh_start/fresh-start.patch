@@ -1,0 +1,227 @@
+diff --git a/ARC3-Inference/inference/agent/tool_agent.py b/ARC3-Inference/inference/agent/tool_agent.py
+index 84a9cdd..0c6cb8f 100644
+--- a/ARC3-Inference/inference/agent/tool_agent.py
++++ b/ARC3-Inference/inference/agent/tool_agent.py
+@@ -122,6 +122,38 @@ def _level_transfer_guidance_enabled() -> bool:
+     return _get_env_bool("ARC3_LEVEL_TRANSFER_GUIDANCE", False)
+ 
+ 
++def _fresh_start_tokens() -> int:
++    """Generated tokens one level may use, without being completed, before its
++    conversation is cleared for a fresh attempt (ARC3_FRESH_START_TOKENS).
++
++    0, the default, disables fresh starts, so the harness behaves exactly as
++    before unless this is set.
++    """
++    return max(0, _get_env_int("ARC3_FRESH_START_TOKENS", 0))
++
++
++def _fresh_start_max_per_level() -> int:
++    """How many fresh starts one level may get (ARC3_FRESH_START_MAX, default 1)."""
++    return max(0, _get_env_int("ARC3_FRESH_START_MAX", 1))
++
++
++_FRESH_START_NOTE = (
++    "FRESH START ON LEVEL {level}. Your previous attempt at this level used about "
++    "{tokens_k}k generated tokens and {actions} actions without completing it, so "
++    "that attempt's conversation has been removed from your context. The level was "
++    "not reset: the board shown below is its current state.\n"
++    "A long attempt that does not complete a level usually rests on a wrong idea "
++    "about the goal or about what the actions do, or on a plan that cannot work. "
++    "Look at the board again from scratch: identify its elements, test what the "
++    "actions do with small experiments, and form a hypothesis about the goal before "
++    "committing to a plan. Do not assume the previous attempt's interpretation was "
++    "right, and consider more than one explanation before choosing one.\n"
++    "What you established on earlier, completed levels is still valid evidence. "
++    "Functions you defined earlier are still available, but they may encode the "
++    "same wrong assumptions, so check them before relying on them."
++)
++
++
+ def _contains_tool_call_markup(*chunks: str) -> bool:
+     for chunk in chunks:
+         lowered = chunk.lower()
+@@ -663,6 +695,11 @@ def _post_with_retries(
+ 
+ 
+ _CONTROL_MESSAGE_KEY = "_arc3_control"
++# Level a turn's opening message was sent on. Like the control tag it never
++# leaves the process (_strip_control_keys removes both); fresh starts use it to
++# find where the current level's conversation begins.
++_LEVEL_MARK_KEY = "_arc3_level"
++_PRIVATE_MESSAGE_KEYS = (_CONTROL_MESSAGE_KEY, _LEVEL_MARK_KEY)
+ 
+ _YIELD_RESUME_PROMPT_WITH_TOOLS = (
+     "You yielded control on the turn time budget. Your tool results above are "
+@@ -1218,12 +1255,13 @@ def _mark_control_message(message: dict[str, Any], kind: str = "resume") -> dict
+ 
+ 
+ def _strip_control_keys(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+-    """Wire-safe copy: the private tag never leaves the process."""
++    """Wire-safe copy: the private tags never leave the process."""
+     cleaned: list[dict[str, Any]] = []
+     for message in messages:
+-        if _CONTROL_MESSAGE_KEY in message:
++        if any(key in message for key in _PRIVATE_MESSAGE_KEYS):
+             copy = dict(message)
+-            copy.pop(_CONTROL_MESSAGE_KEY, None)
++            for key in _PRIVATE_MESSAGE_KEYS:
++                copy.pop(key, None)
+             cleaned.append(copy)
+         else:
+             cleaned.append(message)
+@@ -3585,6 +3623,105 @@ class ToolAgent:
+         self._last_step_summary: dict[str, Any] | None = None
+         self._last_action_call_result: dict[str, Any] | None = None
+         self._summarized_knowledge = _empty_world_model()
++        # Fresh start when stuck (ARC3_FRESH_START_TOKENS); see _maybe_fresh_start.
++        self._fresh_start_level: int | None = None
++        self._fresh_start_count = 0
++        self._fresh_start_events: list[dict[str, Any]] = []
++
++    @property
++    def fresh_start_events(self) -> list[dict[str, Any]]:
++        """Fresh starts taken this game, oldest first (empty when disabled)."""
++        return list(getattr(self, "_fresh_start_events", None) or [])
++
++    def _history_before_level(self, level: int) -> list[dict[str, Any]]:
++        """History up to the first turn opened on `level` or later.
++
++        Every opening message carries the level it was sent on
++        (_LEVEL_MARK_KEY). Levels only increase and the trimmer drops whole
++        turns from the front, so the first opener tagged with this level marks
++        where the level's conversation begins. If none survives, the level's
++        opener was trimmed away along with everything before it, and the whole
++        remaining history belongs to this level.
++        """
++        history = self._history_messages
++        for index, message in enumerate(history):
++            mark = message.get(_LEVEL_MARK_KEY)
++            if mark is not None and int(mark) >= level:
++                return list(history[:index])
++        if any(message.get(_LEVEL_MARK_KEY) is not None for message in history):
++            # Openers from earlier levels only: nothing here belongs to this
++            # level, so there is nothing to drop.
++            return list(history)
++        return []
++
++    def _maybe_fresh_start(self, current_frame: Frame | None) -> str | None:
++        """Clear the current level's conversation once it has used too many tokens.
++
++        Returns the note to put at the top of this turn's opening prompt, or
++        None when no fresh start is due. Measured on the generated tokens since
++        the level began (the same counter the scheduler prices on), so a level
++        completed mid-turn has already restarted the count.
++        """
++        threshold = _fresh_start_tokens()
++        if threshold <= 0 or current_frame is None:
++            return None
++        level = int(current_frame.level)
++        if getattr(self, "_fresh_start_level", None) != level:
++            self._fresh_start_level = level
++            self._fresh_start_count = 0
++        if self._fresh_start_count >= _fresh_start_max_per_level():
++            return None
++        tokens_on_level = max(
++            0, self._session_generated_tokens - getattr(self, "_tokens_at_level_start", 0)
++        )
++        if tokens_on_level < threshold:
++            return None
++        summary = self._last_step_summary or {}
++        if summary.get("run_complete"):
++            return None
++        action_count = _priority_action_count(summary)
++        actions_on_level = max(0, action_count - getattr(self, "_actions_at_level_start", 0))
++
++        kept = self._history_before_level(level)
++        # never leave a dangling opener: the fresh opener is appended next
++        while kept and str(kept[-1].get("role", "")).strip() == "user":
++            kept.pop()
++        dropped = len(self._history_messages) - len(kept)
++        self._history_messages = kept
++        self._fresh_start_count += 1
++        if not isinstance(getattr(self, "_fresh_start_events", None), list):
++            self._fresh_start_events = []
++        self._fresh_start_events.append({
++            "level": level,
++            "attempt": self._fresh_start_count,
++            "tokens_on_level": tokens_on_level,
++            "actions_on_level": actions_on_level,
++            "dropped_messages": dropped,
++        })
++        # The fresh attempt starts its own count: the scheduler prices it as a
++        # new attempt instead of a stalled one, and a further fresh start (if
++        # allowed) needs another full threshold of tokens.
++        self._actions_at_level_start = action_count
++        self._tokens_at_level_start = self._session_generated_tokens
++        if not _memory_sections_disabled():
++            # the structured world model would carry the old attempt's beliefs
++            for key in (
++                "world_model", "goal_model", "action_model",
++                "recent_findings", "open_questions", "current_plan",
++            ):
++                self._summarized_knowledge[key] = ""
++            self._pending_wm_rebuild_reason = "a fresh start on this level"
++            self._pending_wm_revise_reason = ""
++        self._note_history_evicted()
++        log.warning(
++            "%s: fresh start %d on level %d after %d generated tokens and %d actions "
++            "(dropped %d history messages)",
++            getattr(self, "_diag_name", "?"), self._fresh_start_count, level,
++            tokens_on_level, actions_on_level, dropped,
++        )
++        return _FRESH_START_NOTE.format(
++            level=level, tokens_k=round(tokens_on_level / 1000), actions=actions_on_level,
++        )
+ 
+     def _headers(self) -> dict[str, str]:
+         api_key = (
+@@ -6594,6 +6731,14 @@ class ToolAgent:
+         )
+         display_action_num = _display_action_number(action_num)
+         self._wm_absorbed_in_turn = False
++        # Before the history snapshot, so a failed request rolls back to the
++        # cleared history rather than resurrecting the abandoned attempt.
++        fresh_start_note = self._maybe_fresh_start(current_frame)
++        if fresh_start_note is not None:
++            user_prompt = f"{fresh_start_note}\n\n{user_prompt}"
++            # the old opener is gone with the rest of the attempt, so this turn
++            # needs the full opener with the board, not a short resumption
++            self._resume_after_yield = False
+ 
+         with open(analyzer_log, "a", encoding="utf-8") as f:
+             step_label = f"analysis_step={analysis_step} | " if analysis_step is not None else ""
+@@ -6678,6 +6823,14 @@ class ToolAgent:
+             opening_message = self._build_user_message(
+                 user_prompt, resume_frame if resuming_after_yield else current_frame
+             )
++        if current_frame is not None:
++            # marks where each level's conversation begins (see _history_before_level)
++            opening_message[_LEVEL_MARK_KEY] = int(current_frame.level)
++        if fresh_start_note is not None:
++            append_transcript(
++                "ANALYZER STATUS",
++                "fresh_start: " + json.dumps(self._fresh_start_events[-1], sort_keys=True),
++            )
+         # log what was actually SENT, not the argument that was passed in: on a
+         # resumed invocation the short/state_only substitution happens here, so
+         # transcribing `user_prompt` would report a full opener the model never
+diff --git a/ARC3-Inference/inference/framework/solver.py b/ARC3-Inference/inference/framework/solver.py
+index e40976c..a1d182d 100644
+--- a/ARC3-Inference/inference/framework/solver.py
++++ b/ARC3-Inference/inference/framework/solver.py
+@@ -738,6 +738,14 @@ class _HarnessGameSession:
+             total_tokens = _analyzer_reported_tokens(self.analyzer)
+             if run.solver_note is None:
+                 run.solver_note = f"tokens={total_tokens}"
++                # ARC3_FRESH_START_TOKENS: record each fresh start as
++                # level@tokens-on-level so benchmark.json carries it
++                fresh_starts = getattr(self.analyzer, "fresh_start_events", None) or []
++                if fresh_starts:
++                    run.solver_note += " fresh_starts=" + ",".join(
++                        f"{int(event['level'])}@{int(event['tokens_on_level'])}"
++                        for event in fresh_starts
++                    )
+             self._finish_if_needed()
+             self.state_path.unlink(missing_ok=True)
+             self._write_analysis_html()

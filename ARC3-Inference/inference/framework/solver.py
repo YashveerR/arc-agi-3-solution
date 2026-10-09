@@ -738,6 +738,14 @@ class _HarnessGameSession:
             total_tokens = _analyzer_reported_tokens(self.analyzer)
             if run.solver_note is None:
                 run.solver_note = f"tokens={total_tokens}"
+                # ARC3_FRESH_START_TOKENS: record each fresh start as
+                # level@tokens-on-level so benchmark.json carries it
+                fresh_starts = getattr(self.analyzer, "fresh_start_events", None) or []
+                if fresh_starts:
+                    run.solver_note += " fresh_starts=" + ",".join(
+                        f"{int(event['level'])}@{int(event['tokens_on_level'])}"
+                        for event in fresh_starts
+                    )
             self._finish_if_needed()
             self.state_path.unlink(missing_ok=True)
             self._write_analysis_html()

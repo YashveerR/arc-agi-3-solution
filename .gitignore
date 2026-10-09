@@ -17,3 +17,6 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Offline test dependencies (research/tests/README.md)
+third_party/

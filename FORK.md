@@ -16,7 +16,8 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 
 | Change | Where | Status |
 |---|---|---|
-| Run audit: per-level breakdown of where actions and generated tokens go, where score is lost, run-to-run noise, pass-to-pass swings and when levels get stuck | [`research/audit_run.py`](research/audit_run.py) | analysis only, no effect on submissions |
+| Run audit: per-level breakdown of where actions and generated tokens go, where score is lost, run-to-run noise, pass-to-pass swings, when levels get stuck, and fresh starts | [`research/audit_run.py`](research/audit_run.py) | analysis only, no effect on submissions |
+| Fresh start when stuck: clear a level's conversation after `ARC3_FRESH_START_TOKENS` generated tokens without completing it | [`research/fresh_start/`](research/fresh_start/README.md) | built and tested offline; off by default; awaiting a Kaggle run |
 
 ## Results
 
