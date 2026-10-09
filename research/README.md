@@ -12,6 +12,8 @@ Reads the `benchmark.json` that every TAAF / Duck-harness run writes to its job 
 4. **Completion by level number.**
 5. **Where generated tokens go**, including tokens spent on a stuck level after most successful runs would already have finished it.
 6. **A per-game table.**
+7. **Same game, different pass.** How much a game's result swings between passes, and what the score would be if each game got its best pass.
+8. **When a level counts as stuck.** How many tokens completed levels needed, and how often a level that has crossed a token threshold is still completed later. That completion rate is the bar any "get unstuck" change has to beat.
 
 Standard library only.
 

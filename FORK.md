@@ -16,7 +16,20 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 
 | Change | Where | Status |
 |---|---|---|
-| Run audit: per-level breakdown of where actions and generated tokens go, where score is lost, and run-to-run noise | [`research/audit_run.py`](research/audit_run.py) | analysis only, no effect on submissions |
+| Run audit: per-level breakdown of where actions and generated tokens go, where score is lost, run-to-run noise, pass-to-pass swings and when levels get stuck | [`research/audit_run.py`](research/audit_run.py) | analysis only, no effect on submissions |
+
+## Results
+
+| Date | Configuration | Local games × passes | Mean | Hidden-set score | Report |
+|---|---|---|---|---|---|
+| 2026-10-08 | Franzen's published configuration, unchanged (baseline) | 25 × 2 | 47.2 | 26.52 (separate submission) | [baseline](research/results/2026-10-08-baseline/report.md) |
+
+What the baseline shows:
+
+- **Action efficiency is not the problem.** Completed levels use a median 0.67× the human number of actions; perfect efficiency would add only about 2 points.
+- **Almost all lost score is levels never completed** (about 51 of the 53 missing points).
+- **Outcomes swing between passes.** 12 of 25 games differ by two or more levels between the two passes (for example m0r0 scored 4.8 on one pass and 100 on the other). Taking each game's better pass would give 63.4 instead of 47.2.
+- **Stuck levels absorb compute.** 92% of completed levels needed under 60k generated tokens; the level a run ended stuck on had absorbed a median 103k, and 17% of all tokens went into levels past 60k that were never completed.
 
 ## Method
 

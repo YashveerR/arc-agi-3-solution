@@ -445,6 +445,70 @@ def report(meta: dict, runs: list[Run]) -> str:
         rows,
     ))
     L.append("")
+
+    # ---------------------------------------------------------- 7. luck vs ability
+    L.append("## 7. Same game, different pass")
+    L.append("")
+    multi = [g for g in games if len(by_game[g]) >= 2]
+    if multi:
+        best = mean(max(r.score_capped() for r in by_game[g]) for g in multi)
+        worst = mean(min(r.score_capped() for r in by_game[g]) for g in multi)
+        avg = mean(mean(r.score_capped() for r in by_game[g]) for g in multi)
+        k = median(len(by_game[g]) for g in multi)
+        L.append(
+            f"Over the {len(multi)} games played more than once ({k:.0f} passes each): mean **{avg:.1f}**; if every "
+            f"game had got its best of those passes **{best:.1f}**; its worst {worst:.1f}. The gap between mean and "
+            f"best is score the agent is demonstrably capable of on these games but only reaches sometimes. (The "
+            f"best-of figure rises with the number of passes, so compare it only between runs with equal passes.)"
+        )
+        L.append("")
+        swings = []
+        for g in multi:
+            lcs = [r.levels_completed for r in by_game[g]]
+            if max(lcs) - min(lcs) >= 2:
+                sc = [r.score_capped() for r in by_game[g]]
+                swings.append([g.split("-")[0], f"{min(lcs)}–{max(lcs)} of {by_game[g][0].n_levels}",
+                               f"{min(sc):.1f}–{max(sc):.1f}"])
+        L.append(f"{len(swings)} of {len(multi)} games differ by two or more completed levels between passes:")
+        L.append("")
+        if swings:
+            L.append(table(["game", "levels completed", "score"], sorted(swings)))
+            L.append("")
+        never = sorted(g.split("-")[0] for g in multi if max(r.levels_completed for r in by_game[g]) <= 1)
+        if never:
+            L.append(f"Never got past level 1 on any pass: {', '.join(never)}.")
+            L.append("")
+    else:
+        L.append("Each game was played once, so this cannot be measured.")
+        L.append("")
+
+    # ---------------------------------------------------------- 8. stuck levels
+    L.append("## 8. When does a level count as stuck?")
+    L.append("")
+    comp_tok = sorted(lv.tokens for r in runs for lv in r.levels if lv.completed and lv.actions > 0)
+    stall_tok = sorted(r.stalled_level.tokens for r in runs if r.stalled_level is not None)
+    if comp_tok and stall_tok:
+        q = lambda xs, p: quantile(xs, p) / 1000
+        L.append(
+            f"Tokens a level took when it was completed: median {q(comp_tok, .5):.0f}k, 75th percentile "
+            f"{q(comp_tok, .75):.0f}k, 90th {q(comp_tok, .9):.0f}k. Tokens spent on the level a run ended stuck on: "
+            f"median {q(stall_tok, .5):.0f}k."
+        )
+        L.append("")
+        rows = []
+        for T in (40_000, 60_000, 80_000, 100_000):
+            done_late = sum(1 for t in comp_tok if t > T)
+            stuck_past = sum(1 for t in stall_tok if t > T)
+            crossed = done_late + stuck_past
+            wasted = sum(t - T for t in stall_tok if t > T)
+            rows.append([f"{T // 1000}k", crossed, f"{done_late} ({pct(done_late, crossed)})",
+                         f"{wasted / 1e6:.2f}M ({pct(wasted, tot_tok)})"])
+        L.append("A level *crosses* a threshold when it uses more tokens than that without being completed yet. "
+                 "The completion rate after crossing is what any 'get unstuck' change must beat.")
+        L.append("")
+        L.append(table(["threshold", "levels that crossed it", "of those, later completed",
+                        "tokens spent past it on levels never completed"], rows))
+        L.append("")
     return "\n".join(L)
 
 
