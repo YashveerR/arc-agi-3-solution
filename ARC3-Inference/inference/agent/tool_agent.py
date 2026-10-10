@@ -122,35 +122,54 @@ def _level_transfer_guidance_enabled() -> bool:
     return _get_env_bool("ARC3_LEVEL_TRANSFER_GUIDANCE", False)
 
 
-def _fresh_start_tokens() -> int:
-    """Generated tokens one level may use, without being completed, before its
-    conversation is cleared for a fresh attempt (ARC3_FRESH_START_TOKENS).
+def _stuck_review_tokens() -> int:
+    """Generated tokens one level may use, without being completed, before the
+    model is asked to review the ideas it has rejected (ARC3_STUCK_REVIEW_TOKENS).
 
-    0, the default, disables fresh starts, so the harness behaves exactly as
-    before unless this is set.
+    Review n on a level fires at n times this many tokens. 0, the default,
+    disables reviews, so the harness behaves exactly as before unless this is set.
     """
-    return max(0, _get_env_int("ARC3_FRESH_START_TOKENS", 0))
+    return max(0, _get_env_int("ARC3_STUCK_REVIEW_TOKENS", 0))
 
 
-def _fresh_start_max_per_level() -> int:
-    """How many fresh starts one level may get (ARC3_FRESH_START_MAX, default 1)."""
-    return max(0, _get_env_int("ARC3_FRESH_START_MAX", 1))
+def _stuck_review_max_per_level() -> int:
+    """How many reviews one level may get (ARC3_STUCK_REVIEW_MAX, default 2)."""
+    return max(0, _get_env_int("ARC3_STUCK_REVIEW_MAX", 2))
 
 
-_FRESH_START_NOTE = (
-    "FRESH START ON LEVEL {level}. Your previous attempt at this level used about "
-    "{tokens_k}k generated tokens and {actions} actions without completing it, so "
-    "that attempt's conversation has been removed from your context. The level was "
-    "not reset: the board shown below is its current state.\n"
-    "A long attempt that does not complete a level usually rests on a wrong idea "
-    "about the goal or about what the actions do, or on a plan that cannot work. "
-    "Look at the board again from scratch: identify its elements, test what the "
-    "actions do with small experiments, and form a hypothesis about the goal before "
-    "committing to a plan. Do not assume the previous attempt's interpretation was "
-    "right, and consider more than one explanation before choosing one.\n"
-    "What you established on earlier, completed levels is still valid evidence. "
-    "Functions you defined earlier are still available, but they may encode the "
-    "same wrong assumptions, so check them before relying on them."
+def _stuck_review_ab() -> bool:
+    """ARC3_STUCK_REVIEW_AB, for measurement runs only: each game gets reviews on
+    one pass and not on the other (see _stuck_review_arm_on). The pass without
+    them records where a review would have fired, so both halves of one run can
+    be compared at the same trigger point."""
+    return _get_env_bool("ARC3_STUCK_REVIEW_AB", False)
+
+
+def _stuck_review_arm_on(game_id: str, pass_index: int) -> bool:
+    """Deterministic A/B assignment: alternates between passes of a game, and
+    starts on a different pass for different games so neither arm is always
+    pass 0 (which the scheduler orders first)."""
+    return (sum(str(game_id).encode()) + int(pass_index)) % 2 == 1
+
+
+_STUCK_REVIEW_NOTE = (
+    "REVIEW CHECKPOINT ON LEVEL {level}. You have used about {tokens_k}k generated "
+    "tokens and {actions} actions on this level without completing it. Nothing has "
+    "been removed from your context and the game was not touched; this is a routine "
+    "checkpoint. Before acting further, review your own reasoning on this level:\n"
+    "1. List the ideas about the controls and the goal that you have considered on "
+    "this level, including the ones you rejected.\n"
+    "2. For each rejected idea, name the test that ruled it out and check whether that "
+    "test was fair. Were its preconditions true at the time (the state, size and "
+    "position of the objects involved)? Did you check the whole board, every colour "
+    "and object, rather than one expected spot? Did you watch long enough? Effects can "
+    "appear several actions later or be hidden under another object. Did you try the "
+    "complete version of the idea, or only a fragment of it?\n"
+    "3. A rejected idea that would explain why the level's objects are there, but was "
+    "ruled out by an unfair test, is your best candidate: re-test it properly with the "
+    "cheapest test that would clearly confirm or refute it.\n"
+    "If no rejected idea qualifies, say so briefly and continue with the most "
+    "informative action you have not tried yet. Keep the review short."
 )
 
 
@@ -695,11 +714,6 @@ def _post_with_retries(
 
 
 _CONTROL_MESSAGE_KEY = "_arc3_control"
-# Level a turn's opening message was sent on. Like the control tag it never
-# leaves the process (_strip_control_keys removes both); fresh starts use it to
-# find where the current level's conversation begins.
-_LEVEL_MARK_KEY = "_arc3_level"
-_PRIVATE_MESSAGE_KEYS = (_CONTROL_MESSAGE_KEY, _LEVEL_MARK_KEY)
 
 _YIELD_RESUME_PROMPT_WITH_TOOLS = (
     "You yielded control on the turn time budget. Your tool results above are "
@@ -1255,13 +1269,12 @@ def _mark_control_message(message: dict[str, Any], kind: str = "resume") -> dict
 
 
 def _strip_control_keys(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Wire-safe copy: the private tags never leave the process."""
+    """Wire-safe copy: the private tag never leaves the process."""
     cleaned: list[dict[str, Any]] = []
     for message in messages:
-        if any(key in message for key in _PRIVATE_MESSAGE_KEYS):
+        if _CONTROL_MESSAGE_KEY in message:
             copy = dict(message)
-            for key in _PRIVATE_MESSAGE_KEYS:
-                copy.pop(key, None)
+            copy.pop(_CONTROL_MESSAGE_KEY, None)
             cleaned.append(copy)
         else:
             cleaned.append(message)
@@ -3608,6 +3621,12 @@ class ToolAgent:
         )
         self._resume_after_yield: bool = False
         self._resume_reason: str = ""
+        # ARC3_STUCK_REVIEW_TOKENS: review checkpoints per level. Under the A/B
+        # switch a game stays without them until the solver assigns its arm.
+        self._stuck_review_active: bool = not _stuck_review_ab()
+        self._stuck_review_level: Any = None
+        self._stuck_review_count: int = 0
+        self._stuck_review_events: list[dict[str, Any]] = []
         self._prev_level_start_frame: Frame | None = None
         self._cur_level_start_frame: Frame | None = None
         self._death_ledger_level: Any = None
@@ -3623,103 +3642,69 @@ class ToolAgent:
         self._last_step_summary: dict[str, Any] | None = None
         self._last_action_call_result: dict[str, Any] | None = None
         self._summarized_knowledge = _empty_world_model()
-        # Fresh start when stuck (ARC3_FRESH_START_TOKENS); see _maybe_fresh_start.
-        self._fresh_start_level: int | None = None
-        self._fresh_start_count = 0
-        self._fresh_start_events: list[dict[str, Any]] = []
+
+    def configure_stuck_review(self, game_id: str, pass_index: int) -> None:
+        """Called by the solver once it knows which game and pass this agent plays."""
+        self._stuck_review_active = (
+            _stuck_review_arm_on(game_id, pass_index) if _stuck_review_ab() else True
+        )
 
     @property
-    def fresh_start_events(self) -> list[dict[str, Any]]:
-        """Fresh starts taken this game, oldest first (empty when disabled)."""
-        return list(getattr(self, "_fresh_start_events", None) or [])
+    def stuck_review_arm(self) -> str:
+        """'on' or 'off' while reviews are configured, '' when they are disabled."""
+        if _stuck_review_tokens() <= 0:
+            return ""
+        return "on" if self._stuck_review_active else "off"
 
-    def _history_before_level(self, level: int) -> list[dict[str, Any]]:
-        """History up to the first turn opened on `level` or later.
+    @property
+    def stuck_review_events(self) -> list[dict[str, Any]]:
+        """Each review this game reached: fired, or only recorded on the A/B arm without them."""
+        return list(getattr(self, "_stuck_review_events", None) or [])
 
-        Every opening message carries the level it was sent on
-        (_LEVEL_MARK_KEY). Levels only increase and the trimmer drops whole
-        turns from the front, so the first opener tagged with this level marks
-        where the level's conversation begins. If none survives, the level's
-        opener was trimmed away along with everything before it, and the whole
-        remaining history belongs to this level.
+    def _maybe_stuck_review(self, current_frame: Frame | None) -> str | None:
+        """Ask the model to review its rejected ideas once a level has used too many tokens.
+
+        Returns the note to put at the top of this turn's opening prompt, or None.
+        Nothing is removed from the history and no counter the scheduler uses is
+        touched. Measured on the generated tokens since the level began; review
+        n on a level fires at n times the threshold.
         """
-        history = self._history_messages
-        for index, message in enumerate(history):
-            mark = message.get(_LEVEL_MARK_KEY)
-            if mark is not None and int(mark) >= level:
-                return list(history[:index])
-        if any(message.get(_LEVEL_MARK_KEY) is not None for message in history):
-            # Openers from earlier levels only: nothing here belongs to this
-            # level, so there is nothing to drop.
-            return list(history)
-        return []
-
-    def _maybe_fresh_start(self, current_frame: Frame | None) -> str | None:
-        """Clear the current level's conversation once it has used too many tokens.
-
-        Returns the note to put at the top of this turn's opening prompt, or
-        None when no fresh start is due. Measured on the generated tokens since
-        the level began (the same counter the scheduler prices on), so a level
-        completed mid-turn has already restarted the count.
-        """
-        threshold = _fresh_start_tokens()
+        threshold = _stuck_review_tokens()
         if threshold <= 0 or current_frame is None:
             return None
         level = int(current_frame.level)
-        if getattr(self, "_fresh_start_level", None) != level:
-            self._fresh_start_level = level
-            self._fresh_start_count = 0
-        if self._fresh_start_count >= _fresh_start_max_per_level():
+        if self._stuck_review_level != level:
+            self._stuck_review_level = level
+            self._stuck_review_count = 0
+        if self._stuck_review_count >= _stuck_review_max_per_level():
             return None
         tokens_on_level = max(
             0, self._session_generated_tokens - getattr(self, "_tokens_at_level_start", 0)
         )
-        if tokens_on_level < threshold:
+        if tokens_on_level < threshold * (self._stuck_review_count + 1):
             return None
         summary = self._last_step_summary or {}
         if summary.get("run_complete"):
             return None
-        action_count = _priority_action_count(summary)
-        actions_on_level = max(0, action_count - getattr(self, "_actions_at_level_start", 0))
-
-        kept = self._history_before_level(level)
-        # never leave a dangling opener: the fresh opener is appended next
-        while kept and str(kept[-1].get("role", "")).strip() == "user":
-            kept.pop()
-        dropped = len(self._history_messages) - len(kept)
-        self._history_messages = kept
-        self._fresh_start_count += 1
-        if not isinstance(getattr(self, "_fresh_start_events", None), list):
-            self._fresh_start_events = []
-        self._fresh_start_events.append({
+        actions_on_level = max(
+            0, _priority_action_count(summary) - getattr(self, "_actions_at_level_start", 0)
+        )
+        self._stuck_review_count += 1
+        self._stuck_review_events.append({
             "level": level,
-            "attempt": self._fresh_start_count,
+            "review": self._stuck_review_count,
             "tokens_on_level": tokens_on_level,
             "actions_on_level": actions_on_level,
-            "dropped_messages": dropped,
+            "fired": bool(self._stuck_review_active),
         })
-        # The fresh attempt starts its own count: the scheduler prices it as a
-        # new attempt instead of a stalled one, and a further fresh start (if
-        # allowed) needs another full threshold of tokens.
-        self._actions_at_level_start = action_count
-        self._tokens_at_level_start = self._session_generated_tokens
-        if not _memory_sections_disabled():
-            # the structured world model would carry the old attempt's beliefs
-            for key in (
-                "world_model", "goal_model", "action_model",
-                "recent_findings", "open_questions", "current_plan",
-            ):
-                self._summarized_knowledge[key] = ""
-            self._pending_wm_rebuild_reason = "a fresh start on this level"
-            self._pending_wm_revise_reason = ""
-        self._note_history_evicted()
+        if not self._stuck_review_active:
+            return None
         log.warning(
-            "%s: fresh start %d on level %d after %d generated tokens and %d actions "
-            "(dropped %d history messages)",
-            getattr(self, "_diag_name", "?"), self._fresh_start_count, level,
-            tokens_on_level, actions_on_level, dropped,
+            "%s: review checkpoint %d on level %d after %d generated tokens and %d actions",
+            getattr(self, "_diag_name", "?"), self._stuck_review_count, level,
+            tokens_on_level, actions_on_level,
         )
-        return _FRESH_START_NOTE.format(
+        return _STUCK_REVIEW_NOTE.format(
             level=level, tokens_k=round(tokens_on_level / 1000), actions=actions_on_level,
         )
 
@@ -6731,13 +6716,16 @@ class ToolAgent:
         )
         display_action_num = _display_action_number(action_num)
         self._wm_absorbed_in_turn = False
-        # Before the history snapshot, so a failed request rolls back to the
-        # cleared history rather than resurrecting the abandoned attempt.
-        fresh_start_note = self._maybe_fresh_start(current_frame)
-        if fresh_start_note is not None:
-            user_prompt = f"{fresh_start_note}\n\n{user_prompt}"
-            # the old opener is gone with the rest of the attempt, so this turn
-            # needs the full opener with the board, not a short resumption
+        reviews_before = len(self._stuck_review_events)
+        stuck_review_note = self._maybe_stuck_review(current_frame)
+        stuck_review_event = (
+            self._stuck_review_events[-1]
+            if len(self._stuck_review_events) > reviews_before else None
+        )
+        if stuck_review_note is not None:
+            user_prompt = f"{stuck_review_note}\n\n{user_prompt}"
+            # a short resumption prompt would drop the note: send the full
+            # opener, with the current board, for this one turn
             self._resume_after_yield = False
 
         with open(analyzer_log, "a", encoding="utf-8") as f:
@@ -6823,13 +6811,9 @@ class ToolAgent:
             opening_message = self._build_user_message(
                 user_prompt, resume_frame if resuming_after_yield else current_frame
             )
-        if current_frame is not None:
-            # marks where each level's conversation begins (see _history_before_level)
-            opening_message[_LEVEL_MARK_KEY] = int(current_frame.level)
-        if fresh_start_note is not None:
+        if stuck_review_event is not None:
             append_transcript(
-                "ANALYZER STATUS",
-                "fresh_start: " + json.dumps(self._fresh_start_events[-1], sort_keys=True),
+                "ANALYZER STATUS", "stuck_review: " + json.dumps(stuck_review_event, sort_keys=True)
             )
         # log what was actually SENT, not the argument that was passed in: on a
         # resumed invocation the short/state_only substitution happens here, so

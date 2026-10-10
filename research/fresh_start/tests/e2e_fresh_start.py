@@ -6,8 +6,8 @@ OpenAI-compatible server that behaves like a stuck agent: it keeps pressing the
 wrong key and reports 3,000 generated tokens per reply, until a request
 contains the fresh-start note, after which it solves the game.
 
-    python3 research/tests/e2e_fresh_start.py --fresh-start-tokens 10000 --out /tmp/on
-    python3 research/tests/e2e_fresh_start.py --fresh-start-tokens 0     --out /tmp/off
+    python3 research/fresh_start/tests/e2e_fresh_start.py --fresh-start-tokens 10000 --out /tmp/on
+    python3 research/fresh_start/tests/e2e_fresh_start.py --fresh-start-tokens 0     --out /tmp/off
 
 Writes requests.jsonl (every request the server received) and the run's
 benchmark.json to --out, and prints a JSON summary. Environment settings mirror

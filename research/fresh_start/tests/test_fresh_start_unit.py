@@ -1,8 +1,8 @@
 """Unit tests for the fresh-start mechanism in inference/agent/tool_agent.py.
 
-Run with the harness on PYTHONPATH (see research/tests/README.md):
+Run with a fresh-start-patched harness on PYTHONPATH (see research/tests/README.md for the rest of the path):
 
-    python3 research/tests/test_fresh_start_unit.py
+    python3 research/fresh_start/tests/test_fresh_start_unit.py
 
 Plain asserts, no pytest needed.
 """

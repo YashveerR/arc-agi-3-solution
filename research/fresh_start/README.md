@@ -9,6 +9,8 @@ When one level has used `ARC3_FRESH_START_TOKENS` generated tokens without being
 
 See the [result](../results/2026-10-09-fresh-start-60k/README.md) before using this.
 
+**Removed from the harness on 2026-10-10.** It was replaced by the [stuck review](../stuck_review/README.md), which keeps the conversation. This folder is the record: the patch and cell still apply to the competition tree. The tests are in [`tests/`](tests/) and need a tree with `fresh-start.patch` applied.
+
 ## Why
 
 The baseline run (25 public games × 2 passes, [report](../results/2026-10-08-baseline/report.md)) showed:
@@ -59,7 +61,7 @@ Regenerate the cell after changing the patch: `python3 research/fresh_start/make
 
 All against the exact tree Kaggle runs: the competition bundle plus Franzen's patch, rebuilt from the mirrored dataset copy. Applying his patch there reproduces the notebook log exactly (`Hunk #1 succeeded at 467 (offset 48 lines)`), and this patch then applies cleanly.
 
-- **Unit tests** ([`../tests/test_fresh_start_unit.py`](../tests/test_fresh_start_unit.py)), 10/10 pass:
+- **Unit tests** ([`../tests/test_fresh_start_unit.py`](tests/test_fresh_start_unit.py)), 10/10 pass:
   - off by default changes nothing;
   - fires at the threshold, not below it;
   - cuts at the level's first turn, keeping earlier levels;
@@ -68,7 +70,7 @@ All against the exact tree Kaggle runs: the competition bundle plus Franzen's pa
   - front-trimmed history and dangling openers are handled;
   - never fires after the game is won;
   - the private tag is stripped before sending.
-- **End to end** ([`../tests/e2e_fresh_start.py`](../tests/e2e_fresh_start.py)): the real harness plays TAAF's `ExampleGame` with Franzen's notebook settings, against a stand-in model server that keeps pressing a wrong key until it sees a fresh-start note.
+- **End to end** ([`../tests/e2e_fresh_start.py`](tests/e2e_fresh_start.py)): the real harness plays TAAF's `ExampleGame` with Franzen's notebook settings, against a stand-in model server that keeps pressing a wrong key until it sees a fresh-start note.
   - **Stuck on level 1:** fires after 12k tokens. The next request is just the system prompt and the fresh opener; no output from the stuck attempt reappears; the game is won; the note reads `fresh_starts=1@12000`.
   - **Stuck on level 2:** the turn that solved level 1 is kept and only level 2's attempt is dropped. The game is won; the note reads `fresh_starts=2@12000`.
   - **Switched off:** all 25 requests are identical to the unpatched harness's, apart from two clock fields the harness prints.

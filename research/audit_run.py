@@ -73,6 +73,10 @@ class Run:
     trailing_tokens: int = 0  # generated after the last action
     # (level, tokens on that level when it fired), from "fresh_starts=" in the note
     fresh_starts: list[tuple[int, int]] = field(default_factory=list)
+    # stuck-review patch: "on"/"off" arm ("" when the switch was off), and each
+    # review checkpoint the run reached as (level, tokens on that level)
+    review_arm: str = ""
+    reviews: list[tuple[int, int]] = field(default_factory=list)
 
     # -- decomposition, in percentage points of the game score
     @property
@@ -131,10 +135,10 @@ def _total_tokens(raw: dict, history_tokens: int) -> int:
     return int(m.group(1)) if m else history_tokens
 
 
-def _fresh_starts(raw: dict) -> list[tuple[int, int]]:
-    """Fresh starts recorded by the fresh-start patch as level@tokens pairs."""
+def _level_events(raw: dict, key: str) -> list[tuple[int, int]]:
+    """level@tokens pairs recorded in the solver note under `key`."""
     note = raw.get("solver_note") or ""
-    m = re.search(r"fresh_starts=([0-9@,]+)", note)
+    m = re.search(rf"(?:^|\s){key}=([0-9@,]+)", note)
     if not m:
         return []
     events = []
@@ -143,6 +147,17 @@ def _fresh_starts(raw: dict) -> list[tuple[int, int]]:
         if level.isdigit() and tokens.isdigit():
             events.append((int(level), int(tokens)))
     return events
+
+
+def _fresh_starts(raw: dict) -> list[tuple[int, int]]:
+    """Fresh starts recorded by the fresh-start patch."""
+    return _level_events(raw, "fresh_starts")
+
+
+def _review_arm(raw: dict) -> str:
+    """'on'/'off' from the stuck-review patch, '' when it was switched off."""
+    m = re.search(r"review_arm=(on|off)", raw.get("solver_note") or "")
+    return m.group(1) if m else ""
 
 
 def load_runs(path: Path) -> tuple[dict, list[Run]]:
@@ -171,6 +186,8 @@ def load_runs(path: Path) -> tuple[dict, list[Run]]:
         )
         run.trailing_tokens = max(0, run.total_tokens - hist_tokens)
         run.fresh_starts = _fresh_starts(raw)
+        run.review_arm = _review_arm(raw)
+        run.reviews = _level_events(raw, "reviews")
         # History is in order and actions_per_level partitions it exactly, so a
         # running offset attributes each action (and the tokens generated before
         # it) to the level it was taken on.
@@ -261,6 +278,20 @@ def crossing(runs: list["Run"], threshold: int) -> tuple[int, int, float]:
             stuck_past += 1
             wasted += lv.tokens - threshold
     return done_late + stuck_past, done_late, wasted
+
+
+def fisher_two_sided(a: int, b: int, c: int, d: int) -> float:
+    """Exact two-sided p for the 2x2 table [[a, b], [c, d]]."""
+    n, row1, col1 = a + b + c + d, a + b, a + c
+    if n == 0:
+        return 1.0
+
+    def p(x: int) -> float:
+        return math.comb(row1, x) * math.comb(n - row1, col1 - x) / math.comb(n, col1)
+
+    observed = p(a)
+    lo, hi = max(0, col1 - (n - row1)), min(row1, col1)
+    return min(1.0, sum(p(x) for x in range(lo, hi + 1) if p(x) <= observed * (1 + 1e-9)))
 
 
 def table(headers: list[str], rows: list[list]) -> str:
@@ -541,14 +572,21 @@ def report(meta: dict, runs: list[Run], baseline_runs: list[Run] | None = None) 
                         "tokens spent past it on levels never completed"], rows))
         L.append("")
 
-    # ---------------------------------------------------------- 9. fresh starts
+    # ---------------------------------------------------------- 9-10. interventions
+    L += _section_fresh_starts(runs, baseline_runs)
+    L += _section_reviews(runs, baseline_runs)
+    return "\n".join(L)
+
+
+def _section_fresh_starts(runs: list[Run], baseline_runs: list[Run] | None) -> list[str]:
+    L: list[str] = []
     L.append("## 9. Fresh starts")
     L.append("")
     events = [(r, level, tok) for r in runs for level, tok in r.fresh_starts]
     if not events:
         L.append("No fresh starts recorded: the fresh-start switch was off, or no level reached its threshold.")
         L.append("")
-        return "\n".join(L)
+        return L
     restarted: dict[tuple[str, str, int], Run] = {}
     fired_at: dict[tuple[str, str, int], list[int]] = defaultdict(list)
     for r, level, tok in events:
@@ -597,20 +635,108 @@ def report(meta: dict, runs: list[Run], baseline_runs: list[Run] | None = None) 
     L.append(table(["game", "pass", "level", "fired at", "completed later", "actions vs human",
                     "level score", "tokens on level (total)"], rows))
     L.append("")
-    return "\n".join(L)
+    return L
+
+
+def _section_reviews(runs: list[Run], baseline_runs: list[Run] | None) -> list[str]:
+    """Section 10: review checkpoints from the stuck-review patch.
+
+    A level counts once, at its first checkpoint. Under the A/B switch the runs
+    without reviews still record where their checkpoints were, so both arms are
+    compared at the same trigger point.
+    """
+    L = ["## 10. Stuck reviews", ""]
+    armed = [r for r in runs if r.review_arm]
+    if not armed:
+        L += ["No stuck reviews recorded: the stuck-review switch was off.", ""]
+        return L
+    arms = sorted({r.review_arm for r in armed}, reverse=True)  # "on" first
+
+    def checkpoints(arm_runs: list[Run]) -> dict[tuple[str, str, int], tuple[Run, list[int]]]:
+        out: dict[tuple[str, str, int], tuple[Run, list[int]]] = {}
+        for r in arm_runs:
+            for level, tok in r.reviews:
+                out.setdefault((r.game_id, r.pass_id, level), (r, []))[1].append(tok)
+        return out
+
+    rows, stats = [], {}
+    for arm in arms:
+        arm_runs = [r for r in armed if r.review_arm == arm]
+        cps = checkpoints(arm_runs)
+        done = sum(1 for (g, p, level), (r, _) in cps.items() if r.levels_completed >= level)
+        stats[arm] = (arm_runs, cps, done)
+        label = "reviews sent" if arm == "on" else "no reviews (checkpoints recorded only)"
+        rows.append([
+            f"{arm}: {label}", len(arm_runs), fmt(mean([r.reported_score for r in arm_runs]), 1),
+            len(cps), f"{done} ({pct(done, len(cps))})",
+            sum(len(t) for _, t in cps.values()),
+        ])
+    L.append(table(["arm", "runs", "mean score", "levels that reached a checkpoint",
+                    "of those, later completed", "checkpoints in total"], rows))
+    L.append("")
+
+    if "on" in stats and "off" in stats:
+        (on_runs, on_cps, on_done), (off_runs, off_cps, off_done) = stats["on"], stats["off"]
+        p = fisher_two_sided(on_done, len(on_cps) - on_done, off_done, len(off_cps) - off_done)
+        L.append(f"Levels completed after reaching a checkpoint: {pct(on_done, len(on_cps))} with reviews, "
+                 f"{pct(off_done, len(off_cps))} without (Fisher exact two-sided p = {p:.2f}).")
+        on_by_game = defaultdict(list)
+        off_by_game = defaultdict(list)
+        for r in on_runs:
+            on_by_game[r.game_id].append(r.reported_score)
+        for r in off_runs:
+            off_by_game[r.game_id].append(r.reported_score)
+        diffs = [mean(on_by_game[g]) - mean(off_by_game[g]) for g in sorted(set(on_by_game) & set(off_by_game))]
+        if len(diffs) > 1:
+            d = mean(diffs)
+            se = (sum((x - d) ** 2 for x in diffs) / (len(diffs) - 1)) ** 0.5 / len(diffs) ** 0.5
+            L.append(f"Score, paired by game over {len(diffs)} games: with reviews minus without = "
+                     f"**{d:+.2f}** (standard error {se:.2f}).")
+        L.append("Both arms ran in the same run, so they shared the GPU, the scheduler and the clock; "
+                 "pool several runs before drawing conclusions.")
+        L.append("")
+    elif "on" in stats:
+        on_runs, on_cps, on_done = stats["on"]
+        first = [toks[0] for _, toks in on_cps.values()]
+        if first and baseline_runs:
+            ref_T = (min(first) // 1000) * 1000
+            crossed, done_late, _ = crossing(baseline_runs, ref_T)
+            L.append(f"For comparison, in the baseline run levels past {ref_T // 1000}k tokens without being "
+                     f"completed were later completed {done_late} of {crossed} times ({pct(done_late, crossed)}).")
+            L.append("")
+
+    detail = []
+    for arm in arms:
+        for (game, pass_id, level), (r, toks) in sorted(stats[arm][1].items()):
+            lv = r.levels[level - 1] if level - 1 < len(r.levels) else None
+            done = r.levels_completed >= level
+            detail.append([
+                game.split("-")[0], pass_id, arm, level, ", ".join(f"{t / 1000:.0f}k" for t in toks),
+                "yes" if done else "no",
+                fmt(lv.ratio, 2) if (lv is not None and done) else "",
+                fmt(lv.score, 0) if (lv is not None and done) else "",
+                f"{lv.tokens / 1000:.0f}k" if lv is not None else "",
+            ])
+    if detail:
+        L.append(table(["game", "pass", "arm", "level", "checkpoints at", "completed later",
+                        "actions vs human", "level score", "tokens on level (total)"], detail))
+        L.append("")
+    return L
 
 
 def write_levels_csv(runs: list[Run], path: Path) -> None:
     with path.open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["game_id", "pass", "level", "weight", "baseline", "actions", "completed", "stalled_here",
-                    "level_score", "actions_vs_human", "tokens", "resets", "fresh_starts"])
+                    "level_score", "actions_vs_human", "tokens", "resets", "fresh_starts",
+                    "review_arm", "review_checkpoints"])
         for r in runs:
             for lv in r.levels:
                 w.writerow([r.game_id, r.pass_id, lv.index + 1, lv.weight, lv.baseline, lv.actions,
                             int(lv.completed), int(lv.index == r.levels_completed and not lv.completed),
                             f"{lv.score:.3f}", f"{lv.ratio:.3f}" if lv.completed else "", lv.tokens, lv.resets,
-                            sum(1 for level, _ in r.fresh_starts if level == lv.index + 1)])
+                            sum(1 for level, _ in r.fresh_starts if level == lv.index + 1),
+                            r.review_arm, sum(1 for level, _ in r.reviews if level == lv.index + 1)])
 
 
 def main(argv: list[str] | None = None) -> int:

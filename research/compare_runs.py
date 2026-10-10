@@ -21,19 +21,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from audit_run import Run, load_runs, median, table  # noqa: E402
-
-
-def _fisher_two_sided(a: int, b: int, c: int, d: int) -> float:
-    """Exact p for the 2x2 table [[a, b], [c, d]]."""
-    n, row1, col1 = a + b + c + d, a + b, a + c
-
-    def p(x: int) -> float:
-        return math.comb(row1, x) * math.comb(n - row1, col1 - x) / math.comb(n, col1)
-
-    observed = p(a)
-    lo, hi = max(0, col1 - (n - row1)), min(row1, col1)
-    return min(1.0, sum(p(x) for x in range(lo, hi + 1) if p(x) <= observed * (1 + 1e-9)))
+from audit_run import Run, fisher_two_sided, load_runs, median, table  # noqa: E402
 
 
 def _stuck(runs: list[Run], threshold: int) -> list[tuple[str, str, int, int, bool]]:
@@ -67,7 +55,12 @@ def compare(base: list[Run], cand: list[Run], threshold: int) -> str:
         diffs.append(sc - sb)
         lb = ", ".join(str(r.levels_completed) for r in by_game_b[g])
         lc = ", ".join(str(r.levels_completed) for r in by_game_c[g])
-        fired = "yes" if any(r.fresh_starts for r in by_game_c[g]) else ""
+        fired = ", ".join(
+            name for name, hit in (
+                ("fresh start", any(r.fresh_starts for r in by_game_c[g])),
+                ("review", any(r.review_arm == "on" and r.reviews for r in by_game_c[g])),
+            ) if hit
+        )
         rows.append([g.split("-")[0], f"{sb:.1f}", f"{sc:.1f}", f"{sc - sb:+.1f}", lb, lc, fired])
     rows.sort(key=lambda row: float(row[3]))
     mb = sum(r.reported_score for r in base) / len(base)
@@ -79,7 +72,7 @@ def compare(base: list[Run], cand: list[Run], threshold: int) -> str:
         f"Baseline mean **{mb:.2f}** ({len(base)} runs), candidate mean **{mc:.2f}** ({len(cand)} runs).",
         f"Paired over {len(games)} games: difference **{mean_diff:+.2f}** (standard error {se:.2f}, "
         f"so roughly {mean_diff - 2 * se:+.1f} to {mean_diff + 2 * se:+.1f}).", "",
-        table(["game", "baseline", "candidate", "difference", "levels (baseline)", "levels (candidate)", "fresh start fired"], rows),
+        table(["game", "baseline", "candidate", "difference", "levels (baseline)", "levels (candidate)", "intervention fired"], rows),
         "",
     ]
 
@@ -87,7 +80,7 @@ def compare(base: list[Run], cand: list[Run], threshold: int) -> str:
     sb_, sc_ = _stuck(base, threshold), _stuck(cand, threshold)
     db, dc = sum(1 for s in sb_ if s[4]), sum(1 for s in sc_ if s[4])
     nb, nc = len(sb_), len(sc_)
-    p = _fisher_two_sided(dc, nc - dc, db, nb - db)
+    p = fisher_two_sided(dc, nc - dc, db, nb - db)
     rb, rc = db / max(1, nb), dc / max(1, nc)
     se2 = (rb * (1 - rb) / max(1, nb) + rc * (1 - rc) / max(1, nc)) ** 0.5
     lines += [

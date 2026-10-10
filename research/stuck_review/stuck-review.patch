@@ -1,0 +1,207 @@
+diff --git a/ARC3-Inference/inference/agent/tool_agent.py b/ARC3-Inference/inference/agent/tool_agent.py
+index 84a9cdd..9218ed5 100644
+--- a/ARC3-Inference/inference/agent/tool_agent.py
++++ b/ARC3-Inference/inference/agent/tool_agent.py
+@@ -122,6 +122,57 @@ def _level_transfer_guidance_enabled() -> bool:
+     return _get_env_bool("ARC3_LEVEL_TRANSFER_GUIDANCE", False)
+ 
+ 
++def _stuck_review_tokens() -> int:
++    """Generated tokens one level may use, without being completed, before the
++    model is asked to review the ideas it has rejected (ARC3_STUCK_REVIEW_TOKENS).
++
++    Review n on a level fires at n times this many tokens. 0, the default,
++    disables reviews, so the harness behaves exactly as before unless this is set.
++    """
++    return max(0, _get_env_int("ARC3_STUCK_REVIEW_TOKENS", 0))
++
++
++def _stuck_review_max_per_level() -> int:
++    """How many reviews one level may get (ARC3_STUCK_REVIEW_MAX, default 2)."""
++    return max(0, _get_env_int("ARC3_STUCK_REVIEW_MAX", 2))
++
++
++def _stuck_review_ab() -> bool:
++    """ARC3_STUCK_REVIEW_AB, for measurement runs only: each game gets reviews on
++    one pass and not on the other (see _stuck_review_arm_on). The pass without
++    them records where a review would have fired, so both halves of one run can
++    be compared at the same trigger point."""
++    return _get_env_bool("ARC3_STUCK_REVIEW_AB", False)
++
++
++def _stuck_review_arm_on(game_id: str, pass_index: int) -> bool:
++    """Deterministic A/B assignment: alternates between passes of a game, and
++    starts on a different pass for different games so neither arm is always
++    pass 0 (which the scheduler orders first)."""
++    return (sum(str(game_id).encode()) + int(pass_index)) % 2 == 1
++
++
++_STUCK_REVIEW_NOTE = (
++    "REVIEW CHECKPOINT ON LEVEL {level}. You have used about {tokens_k}k generated "
++    "tokens and {actions} actions on this level without completing it. Nothing has "
++    "been removed from your context and the game was not touched; this is a routine "
++    "checkpoint. Before acting further, review your own reasoning on this level:\n"
++    "1. List the ideas about the controls and the goal that you have considered on "
++    "this level, including the ones you rejected.\n"
++    "2. For each rejected idea, name the test that ruled it out and check whether that "
++    "test was fair. Were its preconditions true at the time (the state, size and "
++    "position of the objects involved)? Did you check the whole board, every colour "
++    "and object, rather than one expected spot? Did you watch long enough? Effects can "
++    "appear several actions later or be hidden under another object. Did you try the "
++    "complete version of the idea, or only a fragment of it?\n"
++    "3. A rejected idea that would explain why the level's objects are there, but was "
++    "ruled out by an unfair test, is your best candidate: re-test it properly with the "
++    "cheapest test that would clearly confirm or refute it.\n"
++    "If no rejected idea qualifies, say so briefly and continue with the most "
++    "informative action you have not tried yet. Keep the review short."
++)
++
++
+ def _contains_tool_call_markup(*chunks: str) -> bool:
+     for chunk in chunks:
+         lowered = chunk.lower()
+@@ -3570,6 +3621,12 @@ class ToolAgent:
+         )
+         self._resume_after_yield: bool = False
+         self._resume_reason: str = ""
++        # ARC3_STUCK_REVIEW_TOKENS: review checkpoints per level. Under the A/B
++        # switch a game stays without them until the solver assigns its arm.
++        self._stuck_review_active: bool = not _stuck_review_ab()
++        self._stuck_review_level: Any = None
++        self._stuck_review_count: int = 0
++        self._stuck_review_events: list[dict[str, Any]] = []
+         self._prev_level_start_frame: Frame | None = None
+         self._cur_level_start_frame: Frame | None = None
+         self._death_ledger_level: Any = None
+@@ -3586,6 +3643,71 @@ class ToolAgent:
+         self._last_action_call_result: dict[str, Any] | None = None
+         self._summarized_knowledge = _empty_world_model()
+ 
++    def configure_stuck_review(self, game_id: str, pass_index: int) -> None:
++        """Called by the solver once it knows which game and pass this agent plays."""
++        self._stuck_review_active = (
++            _stuck_review_arm_on(game_id, pass_index) if _stuck_review_ab() else True
++        )
++
++    @property
++    def stuck_review_arm(self) -> str:
++        """'on' or 'off' while reviews are configured, '' when they are disabled."""
++        if _stuck_review_tokens() <= 0:
++            return ""
++        return "on" if self._stuck_review_active else "off"
++
++    @property
++    def stuck_review_events(self) -> list[dict[str, Any]]:
++        """Each review this game reached: fired, or only recorded on the A/B arm without them."""
++        return list(getattr(self, "_stuck_review_events", None) or [])
++
++    def _maybe_stuck_review(self, current_frame: Frame | None) -> str | None:
++        """Ask the model to review its rejected ideas once a level has used too many tokens.
++
++        Returns the note to put at the top of this turn's opening prompt, or None.
++        Nothing is removed from the history and no counter the scheduler uses is
++        touched. Measured on the generated tokens since the level began; review
++        n on a level fires at n times the threshold.
++        """
++        threshold = _stuck_review_tokens()
++        if threshold <= 0 or current_frame is None:
++            return None
++        level = int(current_frame.level)
++        if self._stuck_review_level != level:
++            self._stuck_review_level = level
++            self._stuck_review_count = 0
++        if self._stuck_review_count >= _stuck_review_max_per_level():
++            return None
++        tokens_on_level = max(
++            0, self._session_generated_tokens - getattr(self, "_tokens_at_level_start", 0)
++        )
++        if tokens_on_level < threshold * (self._stuck_review_count + 1):
++            return None
++        summary = self._last_step_summary or {}
++        if summary.get("run_complete"):
++            return None
++        actions_on_level = max(
++            0, _priority_action_count(summary) - getattr(self, "_actions_at_level_start", 0)
++        )
++        self._stuck_review_count += 1
++        self._stuck_review_events.append({
++            "level": level,
++            "review": self._stuck_review_count,
++            "tokens_on_level": tokens_on_level,
++            "actions_on_level": actions_on_level,
++            "fired": bool(self._stuck_review_active),
++        })
++        if not self._stuck_review_active:
++            return None
++        log.warning(
++            "%s: review checkpoint %d on level %d after %d generated tokens and %d actions",
++            getattr(self, "_diag_name", "?"), self._stuck_review_count, level,
++            tokens_on_level, actions_on_level,
++        )
++        return _STUCK_REVIEW_NOTE.format(
++            level=level, tokens_k=round(tokens_on_level / 1000), actions=actions_on_level,
++        )
++
+     def _headers(self) -> dict[str, str]:
+         api_key = (
+             self._api_key
+@@ -6594,6 +6716,17 @@ class ToolAgent:
+         )
+         display_action_num = _display_action_number(action_num)
+         self._wm_absorbed_in_turn = False
++        reviews_before = len(self._stuck_review_events)
++        stuck_review_note = self._maybe_stuck_review(current_frame)
++        stuck_review_event = (
++            self._stuck_review_events[-1]
++            if len(self._stuck_review_events) > reviews_before else None
++        )
++        if stuck_review_note is not None:
++            user_prompt = f"{stuck_review_note}\n\n{user_prompt}"
++            # a short resumption prompt would drop the note: send the full
++            # opener, with the current board, for this one turn
++            self._resume_after_yield = False
+ 
+         with open(analyzer_log, "a", encoding="utf-8") as f:
+             step_label = f"analysis_step={analysis_step} | " if analysis_step is not None else ""
+@@ -6678,6 +6811,10 @@ class ToolAgent:
+             opening_message = self._build_user_message(
+                 user_prompt, resume_frame if resuming_after_yield else current_frame
+             )
++        if stuck_review_event is not None:
++            append_transcript(
++                "ANALYZER STATUS", "stuck_review: " + json.dumps(stuck_review_event, sort_keys=True)
++            )
+         # log what was actually SENT, not the argument that was passed in: on a
+         # resumed invocation the short/state_only substitution happens here, so
+         # transcribing `user_prompt` would report a full opener the model never
+diff --git a/ARC3-Inference/inference/framework/solver.py b/ARC3-Inference/inference/framework/solver.py
+index e40976c..b031a45 100644
+--- a/ARC3-Inference/inference/framework/solver.py
++++ b/ARC3-Inference/inference/framework/solver.py
+@@ -738,6 +738,17 @@ class _HarnessGameSession:
+             total_tokens = _analyzer_reported_tokens(self.analyzer)
+             if run.solver_note is None:
+                 run.solver_note = f"tokens={total_tokens}"
++                # ARC3_STUCK_REVIEW_TOKENS: the A/B arm and each review as
++                # level@tokens-on-level, so benchmark.json carries them
++                arm = getattr(self.analyzer, "stuck_review_arm", "")
++                if arm:
++                    run.solver_note += f" review_arm={arm}"
++                    reviews = getattr(self.analyzer, "stuck_review_events", None) or []
++                    if reviews:
++                        run.solver_note += " reviews=" + ",".join(
++                            f"{int(event['level'])}@{int(event['tokens_on_level'])}"
++                            for event in reviews
++                        )
+             self._finish_if_needed()
+             self.state_path.unlink(missing_ok=True)
+             self._write_analysis_html()
+@@ -1869,6 +1880,8 @@ class HarnessSolver(Solver):
+             transcript_path = self._transcripts_dir() / f"{run_stem}.txt"
+             analysis_relpath = f"solver_analysis/{run_stem}.html"
+             analyzer = self._make_analyzer(game, index, local_server)
++            if hasattr(analyzer, "configure_stuck_review"):
++                analyzer.configure_stuck_review(run.game_id, pass_index)
+             session = _HarnessGameSession(
+                 solver=self,
+                 game=game,

@@ -2,7 +2,8 @@
 
 - [`audit_run.py`](#audit_runpy-where-actions-and-tokens-go): analysis of a run, no effect on submissions.
 - [`compare_runs.py`](compare_runs.py): compares two runs of the same games (paired score difference, stuck-level completion with a Fisher test, token split). Usage: `python3 research/compare_runs.py BASELINE CANDIDATE [--threshold 60000]`.
-- [`fresh_start/`](fresh_start/README.md): the fresh-start-when-stuck change, its notebook cell and test evidence.
+- [`stuck_review/`](stuck_review/README.md): the review checkpoint for stuck levels, its notebook cell and test evidence. Off by default; awaiting a Kaggle A/B run.
+- [`fresh_start/`](fresh_start/README.md): the fresh-start change (tried 2026-10-09, no gain, removed from the harness), kept as a record.
 - [`tests/`](tests/README.md): offline tests (no GPU).
 - [`results/`](results/): audit reports of runs, starting with the 2026-10-08 baseline.
 
@@ -19,6 +20,7 @@ Reads the `benchmark.json` that every TAAF / Duck-harness run writes to its job 
 7. **Same game, different pass.** How much a game's result swings between passes, and what the score would be if each game got its best pass.
 8. **When a level counts as stuck.** How many tokens completed levels needed, and how often a level that has crossed a token threshold is still completed later. That completion rate is the bar any "get unstuck" change has to beat.
 9. **Fresh starts.** For runs with the [fresh-start patch](fresh_start/README.md): every restart, whether the level was later completed, and (with `--baseline`) the baseline's completion rate for levels past the same threshold.
+10. **Stuck reviews.** For runs with the [stuck-review patch](stuck_review/README.md): the checkpoints each arm reached and how often those levels were completed. With `ARC3_STUCK_REVIEW_AB`, it compares the arm with reviews against the arm without, inside the same run (Fisher test and paired score difference).
 
 Standard library only.
 
