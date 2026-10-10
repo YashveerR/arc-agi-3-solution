@@ -2,6 +2,13 @@
 
 When one level has used `ARC3_FRESH_START_TOKENS` generated tokens without being completed, the harness clears that level's conversation from the model's context. The model then starts the level again with fresh eyes. Off by default.
 
+**Result (2026-10-09, 60k threshold): no measurable gain.**
+- 42% of restarted levels were completed later, against the baseline's 36% (p = 0.66).
+- The mean fell from 47.2 to 43.7, within noise.
+- The run exposed two design problems: restarts discard nearly-solved attempts, and they lift a stuck game's scheduler priority.
+
+See the [result](../results/2026-10-09-fresh-start-60k/README.md) before using this.
+
 ## Why
 
 The baseline run (25 public games × 2 passes, [report](../results/2026-10-08-baseline/report.md)) showed:

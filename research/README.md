@@ -1,6 +1,7 @@
 # Research tools
 
 - [`audit_run.py`](#audit_runpy-where-actions-and-tokens-go): analysis of a run, no effect on submissions.
+- [`compare_runs.py`](compare_runs.py): compares two runs of the same games (paired score difference, stuck-level completion with a Fisher test, token split). Usage: `python3 research/compare_runs.py BASELINE CANDIDATE [--threshold 60000]`.
 - [`fresh_start/`](fresh_start/README.md): the fresh-start-when-stuck change, its notebook cell and test evidence.
 - [`tests/`](tests/README.md): offline tests (no GPU).
 - [`results/`](results/): audit reports of runs, starting with the 2026-10-08 baseline.

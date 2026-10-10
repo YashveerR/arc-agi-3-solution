@@ -17,13 +17,14 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 | Change | Where | Status |
 |---|---|---|
 | Run audit: per-level breakdown of where actions and generated tokens go, where score is lost, run-to-run noise, pass-to-pass swings, when levels get stuck, and fresh starts | [`research/audit_run.py`](research/audit_run.py) | analysis only, no effect on submissions |
-| Fresh start when stuck: clear a level's conversation after `ARC3_FRESH_START_TOKENS` generated tokens without completing it | [`research/fresh_start/`](research/fresh_start/README.md) | built and tested offline; off by default; awaiting a Kaggle run |
+| Fresh start when stuck: clear a level's conversation after `ARC3_FRESH_START_TOKENS` generated tokens without completing it | [`research/fresh_start/`](research/fresh_start/README.md) | off by default; tried at 60k on 2026-10-09: no measurable gain ([result](research/results/2026-10-09-fresh-start-60k/README.md)) |
 
 ## Results
 
 | Date | Configuration | Local games × passes | Mean | Hidden-set score | Report |
 |---|---|---|---|---|---|
 | 2026-10-08 | Franzen's published configuration, unchanged (baseline) | 25 × 2 | 47.2 | 26.52 (separate submission) | [baseline](research/results/2026-10-08-baseline/report.md) |
+| 2026-10-09 | Baseline + fresh start at 60k tokens | 25 × 2 | 43.7 | not submitted | [result](research/results/2026-10-09-fresh-start-60k/README.md) |
 
 What the baseline shows:
 
@@ -31,6 +32,14 @@ What the baseline shows:
 - **Almost all lost score is levels never completed** (about 51 of the 53 missing points).
 - **Outcomes swing between passes.** 12 of 25 games differ by two or more levels between the two passes (for example m0r0 scored 4.8 on one pass and 100 on the other). Taking each game's better pass would give 63.4 instead of 47.2.
 - **Stuck levels absorb compute.** 92% of completed levels needed under 60k generated tokens; the level a run ended stuck on had absorbed a median 103k, and 17% of all tokens went into levels past 60k that were never completed.
+
+What the fresh-start run shows: no measurable gain.
+- 42% of restarted levels were completed later, against 36% in the baseline (p = 0.66).
+- The mean fell from 47.2 to 43.7, which is within the noise of one run.
+- Restarting threw away nearly-solved attempts.
+- Resetting the level's counters made the scheduler give stuck games more compute.
+
+Details are in the [result](research/results/2026-10-09-fresh-start-60k/README.md).
 
 ## Method
 
