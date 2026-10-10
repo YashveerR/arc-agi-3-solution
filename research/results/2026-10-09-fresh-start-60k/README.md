@@ -2,7 +2,7 @@
 
 **Run:** 2026-10-09 on Kaggle. Franzen's published configuration plus the [fresh-start cell](../../fresh_start/README.md), with `FRESH_START_TOKENS = 60000` and `FRESH_START_MAX = 1`. 25 public games × 2 passes, the same setup as the [baseline](../2026-10-08-baseline/report.md).
 
-**Files:** [audit report](report.md), [comparison with the baseline](comparison.md) (made with `research/compare_runs.py`), and the raw `benchmark.json`.
+**Files:** [audit report](report.md), [comparison with the baseline](comparison.md) (made with `research/compare_runs.py`), and the raw `benchmark.json`, plus [diagnoses of six stuck transcripts](transcript-diagnoses/README.md).
 
 ## Verdict
 
@@ -52,6 +52,14 @@ No measurable gain. Don't submit with it switched on.
 - At the hoped-for 55%, the fresh start would complete about 7 more levels per 50 runs, about +1.8 points of mean score, plus whatever levels follow them.
 - The observed +6 points of completion rate is worth about +0.6.
 - Effects that size can't be confirmed with one or two runs per arm.
+
+## Transcripts
+
+Six transcripts were read in full ([diagnoses](transcript-diagnoses/README.md)).
+- In every pass where the fresh start fired, it wiped knowledge the model needed.
+- Twice it fired just after the model had stated the right idea.
+
+The note's wording also misled the model once. Its line "The level was not reset" was read as a claim about the board, but in bp35 a game over had just reset the level.
 
 ## If it is revisited
 
