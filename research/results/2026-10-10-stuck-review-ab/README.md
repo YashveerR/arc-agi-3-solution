@@ -6,7 +6,7 @@
 
 25 public games × 2 passes.
 
-**Files:** [audit report](report.md) (section 10 has the arm comparison), [levels.csv](levels.csv), `benchmark.json`.
+**Files:** [audit report](report.md) (section 10 has the arm comparison), [levels.csv](levels.csv), `benchmark.json`, the server log (`serve.log.gz`) and its [summary](serve-summary.md).
 
 ## Verdict
 
@@ -66,3 +66,8 @@ The table shows each run's score recomputed as if it had stopped earlier, using 
 **Where the throughput could come from.**
 - **Idle and prefill time.** Franzen measured 837 tokens/s of server decode but 609 tokens/s reaching the games. Our runs match: 2.2M per hour is 611 tokens/s. The gap is prefill plus slots idling while a game runs its Python tool.
 - **More parallel streams.** The server is capped at 10 parallel requests (`--max-running-requests 10`, CUDA graphs up to batch 10), and the harness admits 10 games.
+
+**What the server log shows** ([summary](serve-summary.md)):
+- **The cache is the limit.** It holds 1.01M tokens and peaks at 90–99% full, so the server limit cannot simply be raised.
+- **Slots sit idle.** On average only 8.7 of the 10 slots are generating, because each game keeps its slot while it runs Python. Decode is 783 tokens/s with all slots busy against a 678 average, so +15% if the slots never sat empty.
+- **Next experiment:** [admit 11 games](../../throughput/README.md) with the server limit unchanged.

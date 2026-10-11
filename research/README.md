@@ -3,6 +3,8 @@
 - [`audit_run.py`](#audit_runpy-where-actions-and-tokens-go): analysis of a run, no effect on submissions.
 - [`compare_runs.py`](compare_runs.py): compares two runs of the same games (paired score difference, stuck-level completion with a Fisher test, token split). Usage: `python3 research/compare_runs.py BASELINE CANDIDATE [--threshold 60000]`.
 - [`stuck_review/`](stuck_review/README.md): the stuck-review checkpoint (A/B 2026-10-10, no effect, removed from the harness), kept as a record.
+- [`serve_stats.py`](serve_stats.py): summarises a run's `serve.log` (cache capacity and use, requests generating, decode throughput, uncached prompt processing). Pass several logs to compare them. Usage: `python3 research/serve_stats.py serve.log [more]`.
+- [`throughput/`](throughput/README.md): admitting 11 games at once to fill idle GPU slots (notebook cell and criteria set before the run). Awaiting a Kaggle run.
 - [`fresh_start/`](fresh_start/README.md): the fresh-start change (tried 2026-10-09, no gain, removed from the harness), kept as a record.
 - [`tests/`](tests/README.md): offline tests (no GPU).
 - [`results/`](results/): audit reports of runs, starting with the 2026-10-08 baseline.
