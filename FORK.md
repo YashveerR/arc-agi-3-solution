@@ -19,7 +19,7 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 | Run audit: per-level breakdown of where actions and generated tokens go, where score is lost, run-to-run noise, pass-to-pass swings, when levels get stuck, and fresh starts | [`research/audit_run.py`](research/audit_run.py) | analysis only, no effect on submissions |
 | Fresh start when stuck: clear a level's conversation after a token threshold | [`research/fresh_start/`](research/fresh_start/README.md) | tried at 60k on 2026-10-09: no measurable gain ([result](research/results/2026-10-09-fresh-start-60k/README.md)); removed from the harness, kept as a record |
 | Stuck review: at a token threshold per level, ask the model to re-test ideas it rejected with an unfair test; nothing is deleted | [`research/stuck_review/`](research/stuck_review/README.md) | A/B in one run on 2026-10-10: no effect ([result](research/results/2026-10-10-stuck-review-ab/README.md)); removed from the harness, kept as a record |
-| Admit 11 games at once instead of 10, so the GPU's idle slots get filled (server limit unchanged) | [`research/throughput/`](research/throughput/README.md) | notebook setting only; awaiting a Kaggle run |
+| Admit 11 games at once instead of 10, so the GPU's idle slots get filled (server limit unchanged) | [`research/throughput/`](research/throughput/README.md) | tried 2026-10-11: 5% fewer tokens, cache overflowed ([result](research/results/2026-10-11-streams-11/README.md)); keep 10 |
 
 ## Results
 
@@ -28,6 +28,7 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 | 2026-10-08 | Franzen's published configuration, unchanged (baseline) | 25 × 2 | 47.2 | 26.52 (separate submission) | [baseline](research/results/2026-10-08-baseline/report.md) |
 | 2026-10-09 | Baseline + fresh start at 60k tokens | 25 × 2 | 43.7 | not submitted | [result](research/results/2026-10-09-fresh-start-60k/README.md) |
 | 2026-10-10 | Stuck review, A/B within the run (half the passes each) | 25 × 2 | 46.1 (both arms 46.1) | not submitted | [result](research/results/2026-10-10-stuck-review-ab/README.md) |
+| 2026-10-11 | 11 games admitted at once (throughput test) | 25 × 2 | 46.1 | not submitted | [result](research/results/2026-10-11-streams-11/README.md) |
 
 What the baseline shows:
 

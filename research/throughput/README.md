@@ -1,5 +1,7 @@
 # Throughput: admit 11 games at once
 
+**Result (2026-10-11): failed. Keep 10.** Slots filled, from 8.85 to 9.42 generating, but the cache overflowed: re-processed prompts rose from 9.3M to 21.1M tokens, and generated tokens fell 5%. See the [result](../results/2026-10-11-streams-11/README.md).
+
 ## Why
 
 Recomputing three runs' scores at earlier cut-off times shows the score still rising by about 7 points per hour at the end of a 4-hour run. Generated tokens stay flat at about 2.2M per hour the whole time. Each 10% more throughput should therefore be worth roughly 2–3 points ([analysis](../results/2026-10-10-stuck-review-ab/README.md)).
