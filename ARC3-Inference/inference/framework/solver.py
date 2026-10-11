@@ -738,17 +738,6 @@ class _HarnessGameSession:
             total_tokens = _analyzer_reported_tokens(self.analyzer)
             if run.solver_note is None:
                 run.solver_note = f"tokens={total_tokens}"
-                # ARC3_STUCK_REVIEW_TOKENS: the A/B arm and each review as
-                # level@tokens-on-level, so benchmark.json carries them
-                arm = getattr(self.analyzer, "stuck_review_arm", "")
-                if arm:
-                    run.solver_note += f" review_arm={arm}"
-                    reviews = getattr(self.analyzer, "stuck_review_events", None) or []
-                    if reviews:
-                        run.solver_note += " reviews=" + ",".join(
-                            f"{int(event['level'])}@{int(event['tokens_on_level'])}"
-                            for event in reviews
-                        )
             self._finish_if_needed()
             self.state_path.unlink(missing_ok=True)
             self._write_analysis_html()
@@ -1880,8 +1869,6 @@ class HarnessSolver(Solver):
             transcript_path = self._transcripts_dir() / f"{run_stem}.txt"
             analysis_relpath = f"solver_analysis/{run_stem}.html"
             analyzer = self._make_analyzer(game, index, local_server)
-            if hasattr(analyzer, "configure_stuck_review"):
-                analyzer.configure_stuck_review(run.game_id, pass_index)
             session = _HarnessGameSession(
                 solver=self,
                 game=game,

@@ -1,5 +1,7 @@
 # Stuck review
 
+**Result (2026-10-10, A/B within one run): no effect.** Levels that reached a checkpoint were completed 56% of the time with reviews and 57% without; both arms scored 46.1. Removed from the harness. This folder is the record: the patch and cell still apply to the competition tree, and the tests in [`tests/`](tests/) need a tree with `stuck-review.patch` applied. See the [result](../results/2026-10-10-stuck-review-ab/README.md).
+
 When one level has used `ARC3_STUCK_REVIEW_TOKENS` generated tokens without being completed, the harness adds a review checkpoint to the start of the next turn. The model is asked to:
 
 1. list the ideas it has rejected on this level;
@@ -74,7 +76,7 @@ If one run is unclear, run another and pool. If the reviewed arm is worse, drop 
 
 All on the exact tree Kaggle runs: the competition bundle plus Franzen's patch, with this patch applied. The two patched files come out byte-identical to this branch.
 
-**Unit tests** ([`../tests/test_stuck_review_unit.py`](../tests/test_stuck_review_unit.py)), 11/11 pass:
+**Unit tests** ([`../tests/test_stuck_review_unit.py`](tests/test_stuck_review_unit.py)), 11/11 pass:
 - off by default;
 - fires at the threshold, not below it;
 - history and scheduler counters untouched;
@@ -86,7 +88,7 @@ All on the exact tree Kaggle runs: the competition bundle plus Franzen's patch, 
 - the A/B arm without reviews records but sends nothing;
 - A/B assignment alternates passes and varies by game.
 
-**End to end** ([`../tests/e2e_stuck_review.py`](../tests/e2e_stuck_review.py)). The real harness plays TAAF's `ExampleGame` with Franzen's notebook settings against a stand-in model that presses a wrong key until it sees the note.
+**End to end** ([`../tests/e2e_stuck_review.py`](tests/e2e_stuck_review.py)). The real harness plays TAAF's `ExampleGame` with Franzen's notebook settings against a stand-in model that presses a wrong key until it sees the note.
 - **Stuck on level 1 and stuck on level 2:** the review fires at 12k tokens and arrives with the board image. The history grows from 11 to 14 messages, with nothing removed, and the stuck attempt's output is still in context. The game is won.
 - **A/B with 2 passes:** the reviewed pass wins (`review_arm=on reviews=1@12000`). The other pass stays stuck, records checkpoints at 12k and 21k, and sends no note.
 - **Switched off:** all 11 requests are identical to the unpatched harness's.

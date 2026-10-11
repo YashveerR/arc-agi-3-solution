@@ -18,7 +18,7 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 |---|---|---|
 | Run audit: per-level breakdown of where actions and generated tokens go, where score is lost, run-to-run noise, pass-to-pass swings, when levels get stuck, and fresh starts | [`research/audit_run.py`](research/audit_run.py) | analysis only, no effect on submissions |
 | Fresh start when stuck: clear a level's conversation after a token threshold | [`research/fresh_start/`](research/fresh_start/README.md) | tried at 60k on 2026-10-09: no measurable gain ([result](research/results/2026-10-09-fresh-start-60k/README.md)); removed from the harness, kept as a record |
-| Stuck review: at a token threshold per level, ask the model to re-test ideas it rejected with an unfair test; nothing is deleted | [`research/stuck_review/`](research/stuck_review/README.md) | built and tested offline; off by default; awaiting a Kaggle A/B run |
+| Stuck review: at a token threshold per level, ask the model to re-test ideas it rejected with an unfair test; nothing is deleted | [`research/stuck_review/`](research/stuck_review/README.md) | A/B in one run on 2026-10-10: no effect ([result](research/results/2026-10-10-stuck-review-ab/README.md)); removed from the harness, kept as a record |
 
 ## Results
 
@@ -26,6 +26,7 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 |---|---|---|---|---|---|
 | 2026-10-08 | Franzen's published configuration, unchanged (baseline) | 25 × 2 | 47.2 | 26.52 (separate submission) | [baseline](research/results/2026-10-08-baseline/report.md) |
 | 2026-10-09 | Baseline + fresh start at 60k tokens | 25 × 2 | 43.7 | not submitted | [result](research/results/2026-10-09-fresh-start-60k/README.md) |
+| 2026-10-10 | Stuck review, A/B within the run (half the passes each) | 25 × 2 | 46.1 (both arms 46.1) | not submitted | [result](research/results/2026-10-10-stuck-review-ab/README.md) |
 
 What the baseline shows:
 
@@ -46,6 +47,12 @@ What six transcripts of stuck runs show ([diagnoses](research/results/2026-10-09
 - In 5 of 6 the model reached the right idea for the level, then dropped it after a test that could not have shown it.
 - The fresh start erased needed knowledge every time it fired.
 - The stuck review is built on these findings.
+
+What the stuck-review run shows: no effect.
+- Levels that reached a review checkpoint were completed 56% of the time with the review and 57% without.
+- Both arms scored 46.1.
+
+What all three runs show together: scores are still rising by about 7 points per hour at the end of a 4-hour run, while token output stays constant. Throughput is the next lever, at roughly 2–3 points per 10%. Details are in the [result](research/results/2026-10-10-stuck-review-ab/README.md).
 
 ## Method
 

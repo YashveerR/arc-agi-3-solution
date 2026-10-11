@@ -15,31 +15,30 @@ These run on a CPU with no model and no Kaggle access.
 
 | File | What it is |
 |---|---|
-| `test_stuck_review_unit.py` | unit tests for the stuck review |
-| `e2e_stuck_review.py` | runs the real harness end to end against a stand-in model |
 | `stub_model.py` | the stand-in model server and Franzen's notebook settings, shared by end-to-end tests |
 | `compare_requests.py` | checks that two recordings of model requests are identical, with clock values masked |
 
-The fresh-start tests are in [`../fresh_start/tests/`](../fresh_start/tests/). They need a tree with `fresh-start.patch` applied.
+Feature tests live next to their patches, in [`../fresh_start/tests/`](../fresh_start/tests/) and [`../stuck_review/tests/`](../stuck_review/tests/). Run them on a tree with that patch applied (see below).
 
 ## Running
 
 From the repository root:
 
 ```bash
-export PYTHONPATH=research/tests/stubs:third_party/arcengine:tufa-arc-agi-framework/src:ARC3-Inference
+# with a tree that has research/stuck_review/stuck-review.patch applied (see below)
+export PYTHONPATH=research/tests/stubs:third_party/arcengine:<tree>/src/tufa-arc-agi-framework/src:<tree>/src/ARC3-Inference
 
-python3 research/tests/test_stuck_review_unit.py
-python3 research/tests/e2e_stuck_review.py --review-tokens 10000 --out /tmp/sr_l1
-python3 research/tests/e2e_stuck_review.py --review-tokens 10000 --stuck-from-level 2 --out /tmp/sr_l2
-python3 research/tests/e2e_stuck_review.py --review-tokens 10000 --ab --passes 2 --out /tmp/sr_ab
-python3 research/tests/e2e_stuck_review.py --review-tokens 0 --max-runtime-s 6 --out /tmp/sr_off
+python3 research/stuck_review/tests/test_stuck_review_unit.py
+python3 research/stuck_review/tests/e2e_stuck_review.py --review-tokens 10000 --out /tmp/sr_l1
+python3 research/stuck_review/tests/e2e_stuck_review.py --review-tokens 10000 --stuck-from-level 2 --out /tmp/sr_l2
+python3 research/stuck_review/tests/e2e_stuck_review.py --review-tokens 10000 --ab --passes 2 --out /tmp/sr_ab
+python3 research/stuck_review/tests/e2e_stuck_review.py --review-tokens 0 --max-runtime-s 6 --out /tmp/sr_off
 ```
 
-To test what Kaggle actually runs rather than this repository's copy, build the tree from the competition bundle:
+Build the tree from the competition bundle, which is what Kaggle actually runs:
 1. Apply Franzen's `harness-changes.patch` with `git apply --include='ARC3-Inference/*'`.
 2. Apply `research/stuck_review/stuck-review.patch` the same way.
-3. Point `PYTHONPATH` at that tree's `src/` instead.
+3. Point `PYTHONPATH` at that tree's `src/`, as above.
 
 **Switched-off check.** Run the `--review-tokens 0` case once on the patched tree and once on the tree without the patch, then compare:
 

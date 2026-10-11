@@ -1,8 +1,8 @@
 """Unit tests for the stuck review in inference/agent/tool_agent.py.
 
-Run with the harness on PYTHONPATH (see research/tests/README.md):
+Run with a stuck-review-patched harness on PYTHONPATH (see research/tests/README.md for the rest of the path):
 
-    python3 research/tests/test_stuck_review_unit.py
+    python3 research/stuck_review/tests/test_stuck_review_unit.py
 
 Plain asserts, no pytest needed.
 """

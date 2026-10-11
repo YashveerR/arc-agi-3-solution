@@ -4,10 +4,10 @@ The real harness (HarnessSolver + ToolAgent + Python sandbox + priority gate)
 plays TAAF's ExampleGame against the stand-in model in stub_model.py, which keeps
 pressing the wrong key until a request contains the review note, then solves.
 
-    python3 research/tests/e2e_stuck_review.py --review-tokens 10000 --out /tmp/on
-    python3 research/tests/e2e_stuck_review.py --review-tokens 10000 --stuck-from-level 2 --out /tmp/on_l2
-    python3 research/tests/e2e_stuck_review.py --review-tokens 10000 --ab --passes 2 --out /tmp/ab
-    python3 research/tests/e2e_stuck_review.py --review-tokens 0 --max-runtime-s 6 --out /tmp/off
+    python3 research/stuck_review/tests/e2e_stuck_review.py --review-tokens 10000 --out /tmp/on
+    python3 research/stuck_review/tests/e2e_stuck_review.py --review-tokens 10000 --stuck-from-level 2 --out /tmp/on_l2
+    python3 research/stuck_review/tests/e2e_stuck_review.py --review-tokens 10000 --ab --passes 2 --out /tmp/ab
+    python3 research/stuck_review/tests/e2e_stuck_review.py --review-tokens 0 --max-runtime-s 6 --out /tmp/off
 
 Writes requests.jsonl (every request the server received), the run's
 benchmark.json and summary.json to --out, and prints the summary. For the
@@ -24,7 +24,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# the shared stand-in model server lives in research/tests
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tests"))
 import stub_model as stub  # noqa: E402
 
 REVIEW_MARK = "REVIEW CHECKPOINT ON LEVEL"
