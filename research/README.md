@@ -3,6 +3,7 @@
 - [`audit_run.py`](#audit_runpy-where-actions-and-tokens-go): analysis of a run, no effect on submissions.
 - [`compare_runs.py`](compare_runs.py): compares two runs of the same games (paired score difference, stuck-level completion with a Fisher test, token split). Usage: `python3 research/compare_runs.py BASELINE CANDIDATE [--threshold 60000]`.
 - [`stuck_review/`](stuck_review/README.md): the stuck-review checkpoint (A/B 2026-10-10, no effect, removed from the harness), kept as a record.
+- [`field-notes.md`](field-notes.md): what other teams report (leaderboard, Milestone 2 serving comparison, what failed for others), and what it implies for this fork.
 - [`serve_stats.py`](serve_stats.py): summarises a run's `serve.log` (cache capacity and use, requests generating, decode throughput, uncached prompt processing). Pass several logs to compare them. Usage: `python3 research/serve_stats.py serve.log [more]`.
 - [`throughput/`](throughput/README.md): admitting 11 games at once (tried 2026-10-11: the cache overflowed, 5% fewer tokens; keep 10).
 - [`fresh_start/`](fresh_start/README.md): the fresh-start change (tried 2026-10-09, no gain, removed from the harness), kept as a record.

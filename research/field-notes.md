@@ -1,0 +1,94 @@
+# Field notes: what other teams report
+
+Gathered 2026-10-12 from Kaggle discussion threads (pasted in by hand, since the forum is not reachable from the research environment), GitHub and news. Most claims are unverified.
+
+## Leaderboard (2026-10-12, public, top 20)
+
+| | score |
+|---|---|
+| 1. Yi-Chia Chen | 62.96 |
+| 2. Tufa Labs | 56.52 |
+| 3. mtg | 45.00 |
+| 5th place (prize line) | 42.55 |
+| 20th | 36.49 |
+
+**Places 8–20:** 15 teams sit between 36.5 and 39.1.
+
+**Repeat submissions inflate public scores.**
+- Many teams have 70–100+ entries.
+- One public score varies by roughly ±2.3 points (from three scores of Franzen's notebook: 27.89, 31.06, 26.52).
+- So the best of about 80 entries sits about 5–6 points above a team's true level.
+- The final ranking uses the other half of the hidden games.
+
+**Some teams score high with few entries**, which points to real gains:
+- Majkel1337: 42.66 in 14
+- fshindo: 38.20 in 11
+- _hans: 37.07 in 8
+- Nhan Duc Nguyen: 38.84 in 16
+
+## Where the gains are coming from: inference engineering
+
+**"Comparing the Milestone 2 winning solutions"** (Tong Hui Kang, Kaggle discussion). All three winners run the Duck harness and Qwen3.8-Flash-Next.
+
+| | dfranzen (27.89) | lordhansolo (23.84) | sirikilohit (22.53) |
+|---|---|---|---|
+| quantization | Intel W4A16 AutoRound + BF16 PLE, separate INT4 MTP draft | primitive-ai NVFP4 + FP8 mixed, built-in MTP head | Intel W4A16 + RadixArk FP8 PLE, NVFP4 MTP draft |
+| server | SGLang Pennyroyal v2.5.3 | vLLM 0.29.1rc1 nightly | SGLang Pennyroyal v2.5.0 |
+| KV pool (tokens) | 1,011,264 | **1,417,100** | 1,004,288 + **48 GB host-RAM tier for KV and Mamba state** |
+| GPU memory left free | 4.25 GB | 1.90 GB | 3.17 GB |
+| context (server / harness) | 139K / 131K | 147K / 127K | 70K / 70K |
+| games streaming | 10 | 14 | 16 |
+| peak decode tokens/s | 946 | **1,135** | **1,159** |
+| scheduling | priority gate; a game keeps its slot until its next history trim | 3,918 s cap per game | 2,400 s slice per game, then UCB on levels cleared per token |
+| carried across levels | history, Python functions | history, saved Python modules | history; the rule and last 30 winning actions of each solved level pinned in the system prompt |
+
+**What the thread's comments add:**
+- **rellik13:** "the kv pool sat somewhere between 91-97% full and requests queued for cache space, so the memory was the actual limit." Switching to fp8 KV and spending the freed memory on history took him from 14.5 to 22.5. This matches our [11-stream result](results/2026-10-11-streams-11/README.md).
+- **rellik13, on prompts:** harness changes that helped were "simply to not mislead the agent". Examples: UNDO instead of ACTION7, "level restarted" instead of "game over", and removing lines that tell the agent to ignore the budget bar.
+- **xz:** NVFP4 KV showed "very little NLL penalty" in his tests. That would roughly double KV capacity over fp8, but it is untested at 60–100K contexts.
+- **Son Pham (7th):** pruning and changing the serving setup is "an entire untapped area to explore".
+- **Yi-Chia Chen (1st):** "excited to see how high a score people can achieve by combining these three winning notebooks!"
+- **Nhan Duc Nguyen (10th):** the public notebooks share the same inference improvements, so the next phase is likely harness work or a new open model.
+
+## What did not work for others
+
+**Fine-tuning, in any form, on this hardware and timeline.**
+- Training Flash-Next does not fit on the RTX PRO 6000; one person used a full H200 node.
+- SFT with frontier teachers (Qwen Max, Astra), synthetic game variants, and STaR on the model's own winning trajectories all gave no meaningful hidden-set gain.
+- One report: +2 on the public games that did not carry over to the hidden set.
+- An early STaR LoRA on Qwen3.6-27B (1.25 → 1.94) predates the current models.
+- Chollet has cautioned that the 25 public games are not meant as training data.
+- Distilling from OpenAI outputs may conflict with their terms and with open-source release.
+- LamDang's fork is building QLoRA at 120K context: about 43 minutes per sample on this GPU, with no results yet.
+
+**Other models.** Gemma 4 31B was worse at logic and coding. Qwen 27B variants fall clearly short of Flash-Next.
+
+**Multi-role LLM setups** (observer, theorist, actor, advisor): better reasoning, but about 5× the tokens.
+
+**Symbolic game decoders and strategy libraries:** they introduce game-specific bias.
+
+**Concurrency above about 16:** throughput saturates. Prefill and decode start interfering, and the KV cache fills.
+
+**Expert pruning to 256 of 512 experts (REAP):** the score fell from 68.97 to 45.95 in LamDang's runs. Milder pruning or merging is untested. One example is WaveCut/Qwen3.8-Flash-Next-REAM-288 on Hugging Face.
+
+## Consequences for this fork
+
+**The binding constraint is GPU memory for the KV cache.** That is our measurement and the field's. Candidates, in order:
+1. **Host-RAM KV tier** (sirikilohit): evicted prefixes come back from host RAM instead of being re-processed. That attacks the 9.3M re-processed tokens per run, and may make 11–14 streams viable. FP8 PLE frees the host RAM it needs.
+2. **lordhansolo's serving:** NVFP4/FP8 mixed weights, a built-in MTP head and higher memory utilisation give a 40% larger KV pool and 20% higher peak decode.
+3. **NVFP4 KV,** if the server supports it on this GPU.
+4. **A pruned or merged model,** for much more memory, but with a quality risk.
+5. **Prompt wording that does not mislead** (rellik13): cheap, small.
+
+**How to judge serving changes:** tokens per hour and re-processed prompt tokens (`research/serve_stats.py`) decide first. Score is checked afterwards with daily submissions alternating against Franzen's configuration.
+
+## Sources
+
+- Kaggle discussions (pasted 2026-10-12):
+  - "Comparing the Milestone 2 winning solutions" (Tong Hui Kang)
+  - "What Have You Tried So Far?" (Fususu)
+  - "Finetuning a model (SFT or RL) on the RTX 6000 Pro?" (Nick Pellegrin)
+  - "Open-sourcing winning-trajectory datasets + a LoRA for the duck harness" (manas joshi)
+- LamDang/arc-agi-3-solution-da-fr: PRs [#10](https://github.com/LamDang/arc-agi-3-solution-da-fr/pull/10), [#19](https://github.com/LamDang/arc-agi-3-solution-da-fr/pull/19), [#24](https://github.com/LamDang/arc-agi-3-solution-da-fr/pull/24)
+- [WaveCut/Qwen3.8-Flash-Next-REAM-288](https://huggingface.co/WaveCut/Qwen3.8-Flash-Next-REAM-288)
+- [TechTimes, 2026-10-06](https://www.techtimes.com/articles/328542/20261006/arc-agi-3-scaffolding-beats-model-upgrades-same-ai-two-settings-49x-score-gain.htm)
