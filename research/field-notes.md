@@ -82,6 +82,49 @@ Gathered 2026-10-12 from Kaggle discussion threads (pasted in by hand, since the
 
 **How to judge serving changes:** tokens per hour and re-processed prompt tokens (`research/serve_stats.py`) decide first. Score is checked afterwards with daily submissions alternating against Franzen's configuration.
 
+## Exact server settings from the two other Milestone 2 notebooks (received 2026-10-12)
+
+### lordhansolo: vLLM nightly, launched from his TAAF bundle's setup commands
+
+Server command:
+
+```
+vllm serve qwen3-8-flash-next-mixed-nvfp4-fp8 (primitive-ai NVFP4/FP8 mixed, built-in MTP)
+  --max-model-len 147072 --max-num-seqs 14 --max-num-batched-tokens 2048
+  --async-scheduling --enable-chunked-prefill --enable-prefix-caching
+  --gpu-memory-utilization 0.98 --kv-cache-dtype fp8_e4m3 --mamba-ssm-cache-dtype bfloat16
+  --speculative-config {"method": "mtp", "num_speculative_tokens": 3}
+  --cpu-offload-params embed_tokens --engram-config {"cpu_offload": true}
+  --mm-processor-kwargs {"max_pixels": 65536}
+  --default-chat-template-kwargs {"preserve_thinking": true, "reasoning_effort": "xhigh"}
+```
+
+**Notes:**
+- GPU KV cache: 1,410,972 tokens.
+- His images are capped at 65,536 pixels, about 256×256. Franzen uses 640×640 (10× upscale), which he reports as his biggest image-related gain.
+- His `reasoning_effort: xhigh` is untested with Franzen's harness.
+
+### Lohit Siriki: SGLang Pennyroyal v2.5.0, the same server family as Franzen's
+
+His version notes:
+- **v18.1gc:** FP8 KV, 16 games, trims 57,344 → 45,056 (was 36,864 → 26,624).
+- **v18.1gs:** deleted two phrases from the prompt, "the edge bar is the action budget; do not tell the model to ignore it".
+
+Server arguments:
+
+```
+--quantization auto-round --kv-cache-dtype fp8_e4m3 --mem-fraction-static 0.97
+--context-length 69632 --max-running-requests 16 --chunked-prefill-size 4096
+--mamba-radix-cache-strategy extra_buffer --max-mamba-cache-size 80
+--speculative-algorithm NEXTN (NVFP4 MTP draft, modelopt_fp4)
+--enable-hierarchical-cache --hicache-size 48 --hicache-write-policy write_through --hicache-io-backend kernel
+```
+
+**Notes:**
+- KV pool: 1,004,288 tokens on the GPU, plus the 48 GB system-RAM tier.
+- The boot log reports 176.9 GiB of system RAM and 48 CPUs.
+- His harness diverges heavily from Franzen's: a UCB scheduler, a reasoning ledger, solved-level memory, and a port of the Wang/Ludvig harness. It scored lower (22.53 against 27.89), so only the serving parts are worth borrowing. The [hierarchical-cache experiment](hicache/README.md) does that.
+
 ## Sources
 
 - Kaggle discussions (pasted 2026-10-12):

@@ -6,6 +6,7 @@
 - [`field-notes.md`](field-notes.md): what other teams report (leaderboard, Milestone 2 serving comparison, what failed for others), and what it implies for this fork.
 - [`serve_stats.py`](serve_stats.py): summarises a run's `serve.log` (cache capacity and use, requests generating, decode throughput, uncached prompt processing). Pass several logs to compare them. Usage: `python3 research/serve_stats.py serve.log [more]`.
 - [`throughput/`](throughput/README.md): admitting 11 games at once (tried 2026-10-11: the cache overflowed, 5% fewer tokens; keep 10).
+- [`hicache/`](hicache/README.md): system-RAM tier for the prompt cache (snippet for Franzen's section 5, with criteria set before the run). Awaiting a Kaggle run.
 - [`fresh_start/`](fresh_start/README.md): the fresh-start change (tried 2026-10-09, no gain, removed from the harness), kept as a record.
 - [`tests/`](tests/README.md): offline tests (no GPU).
 - [`results/`](results/): audit reports of runs, starting with the 2026-10-08 baseline.
