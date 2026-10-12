@@ -37,7 +37,7 @@ Other teams report the same limit ([field notes](../field-notes.md)).
 
 Throughput at 10 games may rise only a few percent. The real payoff is run 2.
 
-**Run 2, only if run 1 passes: tier on, 12 games** (`ARC3_MAX_ACTIVE_STREAMS=12`, server `MAXREQ=12`, CUDA graphs up to 12).
+**Run 2, only if run 1 passes: tier on, 12 games** ([exact changes](run2.md)) (`ARC3_MAX_ACTIVE_STREAMS=12`, server `MAXREQ=12`, CUDA graphs up to 12).
 - Success needs at least 9.9M generated tokens (+8% over the earlier mean of 9.18M).
 - Large uncached prompts must stay at most 9.3M tokens.
 
