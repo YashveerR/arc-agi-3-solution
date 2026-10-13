@@ -20,7 +20,7 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 | Fresh start when stuck: clear a level's conversation after a token threshold | [`research/fresh_start/`](research/fresh_start/README.md) | tried at 60k on 2026-10-09: no measurable gain ([result](research/results/2026-10-09-fresh-start-60k/README.md)); removed from the harness, kept as a record |
 | Stuck review: at a token threshold per level, ask the model to re-test ideas it rejected with an unfair test; nothing is deleted | [`research/stuck_review/`](research/stuck_review/README.md) | A/B in one run on 2026-10-10: no effect ([result](research/results/2026-10-10-stuck-review-ab/README.md)); removed from the harness, kept as a record |
 | Admit 11 games at once instead of 10, so the GPU's idle slots get filled (server limit unchanged) | [`research/throughput/`](research/throughput/README.md) | tried 2026-10-11: 5% fewer tokens, cache overflowed ([result](research/results/2026-10-11-streams-11/README.md)); keep 10 |
-| System-RAM tier for the prompt cache (SGLang hierarchical cache, as in Lohit Siriki's notebook) | [`research/hicache/`](research/hicache/README.md) | server flags only; awaiting a Kaggle run |
+| System-RAM tier for the prompt cache (SGLang hierarchical cache, as in Lohit Siriki's notebook) | [`research/hicache/`](research/hicache/README.md) | 10 games on 2026-10-12: attached and stable, tokens +1%, score 47.66, but no fewer re-processed prompts ([result](research/results/2026-10-12-hicache-32g/README.md)); 12-game test next |
 
 ## Results
 
@@ -30,6 +30,7 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 | 2026-10-09 | Baseline + fresh start at 60k tokens | 25 × 2 | 43.7 | not submitted | [result](research/results/2026-10-09-fresh-start-60k/README.md) |
 | 2026-10-10 | Stuck review, A/B within the run (half the passes each) | 25 × 2 | 46.1 (both arms 46.1) | not submitted | [result](research/results/2026-10-10-stuck-review-ab/README.md) |
 | 2026-10-11 | 11 games admitted at once (throughput test) | 25 × 2 | 46.1 | not submitted | [result](research/results/2026-10-11-streams-11/README.md) |
+| 2026-10-12 | 32 GB system-RAM prompt cache, 10 games | 25 × 2 | 47.7 | not submitted | [result](research/results/2026-10-12-hicache-32g/README.md) |
 
 What the baseline shows:
 

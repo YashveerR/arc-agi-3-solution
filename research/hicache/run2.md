@@ -1,6 +1,6 @@
 # Run 2: 12 games at once with the system-RAM cache
 
-Only run this if [run 1](README.md) passed: the cache attached, re-processed prompts were at most 5M tokens, and generated tokens were at least 8.9M.
+[Run 1](../results/2026-10-12-hicache-32g/README.md) passed three of four criteria. The cache attached, tokens held and it was stable. The miss criterion failed for a reason that doesn't bear on this run: at 10 games the re-processing is mostly trims, not evictions. Run 2 tests the eviction case directly.
 
 ## Changes on top of run 1
 
@@ -16,7 +16,7 @@ Only run this if [run 1](README.md) passed: the cache attached, re-processed pro
 ## Judging it (set before the run)
 
 - **Tokens:** at least 9.9M generated (+8% over the 10-game mean of 9.18M).
-- **Re-processing:** large uncached prompts at most 9.3M tokens, the 10-game level without the tier.
+- **Re-processing:** at most 13M tokens in large prefill chunks (≥ 8K new tokens per log line). The 11-game run without the tier had 22.6M, and 10 games have 9.9–10.6M.
 - **Stability:** no out-of-memory errors, retractions or server restarts.
 - **Score:** within the usual range (43.7–47.2).
 

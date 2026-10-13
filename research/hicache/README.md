@@ -1,5 +1,7 @@
 # System-RAM tier for the prompt cache
 
+**Run 1 (2026-10-12, 10 games):** attached and stable, tokens +1%, score 47.66. Re-processed prompts barely fell: at 10 games they are mostly trims, not evictions. See the [result](../results/2026-10-12-hicache-32g/README.md). [Run 2](run2.md), at 12 games, is the real test.
+
 ## Why
 
 The GPU's prompt cache, the KV pool, limits throughput. Our evidence:
