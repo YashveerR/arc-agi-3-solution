@@ -6,7 +6,11 @@ One submission per day. Each score is one run on the public half of the hidden g
 |---|---|---|---|
 | 2026-10-0? | Franzen's notebook, unchanged | 26.52 | |
 | 2026-10-11 | Franzen's notebook, unchanged | 29.29 | 561 |
+| 2026-10-13 | Franzen + 32 GB system-RAM cache, 10 games (neutral; a stability check) | 28.48 | |
 
 **Reference: Franzen's own scores** for the same notebook were 27.89 (his Milestone 2 entry) and 31.06 (his best).
 
-**Franzen's configuration so far:** four scores, mean 28.7, standard deviation about 2.0.
+**Franzen-level configurations so far:**
+- Five scores: 26.52, 27.89, 28.48, 29.29 and 31.06.
+- Mean 28.6, standard deviation about 1.7.
+- The 28.48 entry includes the RAM cache, which is neutral at 10 games.

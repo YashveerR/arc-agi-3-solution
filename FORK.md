@@ -31,6 +31,8 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 | 2026-10-10 | Stuck review, A/B within the run (half the passes each) | 25 × 2 | 46.1 (both arms 46.1) | not submitted | [result](research/results/2026-10-10-stuck-review-ab/README.md) |
 | 2026-10-11 | 11 games admitted at once (throughput test) | 25 × 2 | 46.1 | not submitted | [result](research/results/2026-10-11-streams-11/README.md) |
 | 2026-10-12 | 32 GB system-RAM prompt cache, 10 games | 25 × 2 | 47.7 | not submitted | [result](research/results/2026-10-12-hicache-32g/README.md) |
+| 2026-10-13 | RAM cache, 10 games (submitted version) | 25 × 2 | 44.5 | 28.48 | [result](research/results/2026-10-13-hicache-32g-submitted-version/README.md) |
+| 2026-10-13 | RAM cache, 12 games | 25 × 2 | crashed at 2.1 h (server killed, likely out of RAM); +6% tokens while running | not submitted | [result](research/results/2026-10-13-hicache-12games-crashed/README.md) |
 
 What the baseline shows:
 
