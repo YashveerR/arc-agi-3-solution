@@ -283,6 +283,15 @@ _SANDBOX_BOOTSTRAP = textwrap.dedent(
 
 
     def _set_limits(timeout_seconds):
+        if os.environ.get("ARC3_SANDBOX_OOM_FIRST") == "1":
+            # Volunteer this sandbox as the first process the kernel's
+            # out-of-memory killer takes, so a runaway snippet dies instead of
+            # the model server. Raising one's own score needs no privileges.
+            try:
+                with open("/proc/self/oom_score_adj", "w") as handle:
+                    handle.write("1000")
+            except OSError:
+                pass
         if resource is None:
             return
         cpu_limit = max(1, int(timeout_seconds)) + 1
@@ -762,6 +771,39 @@ def _sanitize_host_error_text(text: str) -> str:
     return "Sandbox process exited unexpectedly."
 
 
+def _sandbox_oom_first() -> bool:
+    """ARC3_SANDBOX_OOM_FIRST: each sandbox volunteers as the out-of-memory
+    killer's first victim (see _set_limits in the bootstrap). Off by default."""
+    return os.environ.get("ARC3_SANDBOX_OOM_FIRST", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+_SANDBOX_KILLS = 0
+
+
+def _report_sandbox_killed() -> None:
+    """One line on stderr each time a sandbox dies of SIGKILL with the guard on.
+    Only the out-of-memory killer sends that here (a timeout takes the other
+    branch), so these lines confirm or rule out runaway snippets as the cause
+    of a lost server. The model is told nothing new."""
+    global _SANDBOX_KILLS
+    _SANDBOX_KILLS += 1
+    available = "?"
+    try:
+        for line in open("/proc/meminfo"):
+            if line.startswith("MemAvailable:"):
+                available = f"{int(line.split()[1]) / 1024 ** 2:.1f} GiB"
+                break
+    except (OSError, ValueError, IndexError):
+        pass
+    print(
+        f"[sandbox guard] a Python snippet was killed by SIGKILL, most likely by the "
+        f"out-of-memory killer (kill #{_SANDBOX_KILLS}, RAM available now {available}); "
+        f"its game continues",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def _sandbox_env() -> dict[str, str]:
     return {
         "PYTHONUNBUFFERED": "1",
@@ -770,6 +812,7 @@ def _sandbox_env() -> dict[str, str]:
         "HOME": "/tmp",
         "TMPDIR": "/tmp",
         "PATH": os.environ.get("PATH", ""),
+        **({"ARC3_SANDBOX_OOM_FIRST": "1"} if _sandbox_oom_first() else {}),
     }
 
 
@@ -882,6 +925,8 @@ def run_sandboxed_python(
             if line is None:
                 stderr = process.stderr.read()
                 _wait_for_process_exit(process)
+                if process.returncode == -signal.SIGKILL and _sandbox_oom_first():
+                    _report_sandbox_killed()
                 return {
                     "error": _sanitize_host_error_text(stderr),
                     "stdout": "",

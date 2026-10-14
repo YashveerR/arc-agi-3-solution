@@ -31,16 +31,24 @@ The server log confirms all of these (`max_running_requests: 12`, `hicache_size:
 - There was no re-processing blow-up like the 11-game run without the cache.
 - Decode speed per batch tops out at about 780 tokens/s above 10 running requests, so the gain comes from fewer idle slots, not faster decoding.
 
-## To make it usable
+## The `[sys]` lines (added 2026-10-14)
 
-System RAM has to have room. On this machine:
-- total: 176.9 GiB;
-- Franzen's BF16 PLE table: about 96 GB;
-- RAM cache: 32 GB;
-- the harness for every game, plus the Python sandboxes, takes the rest.
+The notebook's RAM monitor from this run:
+- RAM in use rose from 136.5 to 148.4 of 176.9 GiB, about 5.7 GB an hour.
+- The last line, 80 seconds before the crash, still showed about 28 GB free.
+- After the crash, RAM in use fell to 5.2 GiB. So the server held about 143 GB, and the harness and everything else about 5 GB.
 
-**Options:**
-- a smaller RAM cache (16 GB);
-- the FP8 PLE table, as Siriki did: it frees about 48 GB, but needs a mixed model folder built from a second checkpoint.
+**Reading.** Slow growth alone would have left room for hours more. Something took about 28 GB within 80 seconds.
+- **Likeliest cause:** a Python snippet written by the model. The sandbox limits CPU time, file size and open files, but not memory.
+- **What happened next:** Linux's out-of-memory killer takes the process with the highest score, roughly its share of RAM. That's the server, not the snippet.
+- **Not ruled out:** a container memory limit below the reported total, or a jump inside the server.
 
-The `[sys]` lines from this run and the 10-game run decide which. Note that a competition rerun keeps all 110 games live, not 50, so it needs more margin than local runs.
+## Next
+
+The [sandbox out-of-memory guard](../../sandbox_guard/README.md) makes every Python snippet the first process Linux kills, and logs a line when it fires. [Run 3](../../hicache/run3.md) repeats this run with the guard on.
+
+If run 3 crashes too, the fallbacks are:
+- a smaller RAM cache (`HICACHE_GB = 16`);
+- the FP8 PLE table, as Siriki did. It frees about 48 GB, but needs a mixed model folder built from a second checkpoint.
+
+**Margin for competition reruns.** A competition rerun keeps all 110 games live, not 50, so it needs more margin than local runs.

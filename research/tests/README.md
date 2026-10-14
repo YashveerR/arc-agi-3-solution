@@ -16,9 +16,10 @@ These run on a CPU with no model and no Kaggle access.
 | File | What it is |
 |---|---|
 | `stub_model.py` | the stand-in model server and Franzen's notebook settings, shared by end-to-end tests |
-| `compare_requests.py` | checks that two recordings of model requests are identical, with clock values masked |
+| `compare_requests.py` | checks that two recordings of model requests are identical, with clock values masked. `--prefix` accepts different counts from time-limited runs as long as the shared requests match |
+| `e2e_play.py` | plays the example game through the real harness with extra settings (`--env KEY=VALUE`), records model requests, and records the out-of-memory score of every sandbox process it catches |
 
-Feature tests live next to their patches, in [`../fresh_start/tests/`](../fresh_start/tests/) and [`../stuck_review/tests/`](../stuck_review/tests/). Run them on a tree with that patch applied (see below).
+Feature tests live next to their patches, in [`../fresh_start/tests/`](../fresh_start/tests/), [`../stuck_review/tests/`](../stuck_review/tests/) and [`../sandbox_guard/tests/`](../sandbox_guard/tests/). Run them on a tree with that patch applied (see below).
 
 ## Running
 
@@ -47,3 +48,12 @@ python3 research/tests/compare_requests.py /tmp/sr_off_original/requests.jsonl /
 ```
 
 `research/stuck_review/README.md` lists the expected results.
+
+**Sandbox guard.** With `research/sandbox_guard/sandbox-guard.patch` applied on top of Franzen's patch:
+
+```bash
+python3 research/sandbox_guard/tests/test_sandbox_guard.py
+python3 research/tests/e2e_play.py --env ARC3_SANDBOX_OOM_FIRST=1 --out /tmp/sg_on
+python3 research/tests/e2e_play.py --stuck --max-runtime-s 6 --out /tmp/sg_off        # also once on the unpatched tree
+python3 research/tests/compare_requests.py /tmp/sg_off_original/requests.jsonl /tmp/sg_off/requests.jsonl --prefix
+```

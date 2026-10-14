@@ -1,6 +1,8 @@
 # System-RAM tier for the prompt cache
 
-**Run 1 (2026-10-12, 10 games):** attached and stable, tokens +1%, score 47.66. Re-processed prompts barely fell: at 10 games they are mostly trims, not evictions. See the [result](../results/2026-10-12-hicache-32g/README.md). [Run 2](run2.md), at 12 games, is the real test.
+**Run 1 (2026-10-12, 10 games):** attached and stable, tokens +1%, score 47.66. Re-processed prompts barely fell: at 10 games they are mostly trims, not evictions. See the [result](../results/2026-10-12-hicache-32g/README.md).
+
+**Run 2 (2026-10-13, 12 games):** +6% tokens for 2.1 hours, then the server was killed, most likely by the out-of-memory killer ([result](../results/2026-10-13-hicache-12games-crashed/README.md)). [Run 3](run3.md) repeats it with the [sandbox guard](../sandbox_guard/README.md).
 
 ## Why
 
