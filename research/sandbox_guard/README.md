@@ -1,13 +1,13 @@
 # Sandbox out-of-memory guard
 
-**Status:** built and tested offline (2026-10-14). On in the [12-game run of 2026-10-14](../results/2026-10-14-hicache-12games-guard/README.md), which survived the full run. Whether it fired is not yet known: that is in the notebook log.
+**Status:** built and tested offline (2026-10-14). On in the [12-game run of 2026-10-14](../results/2026-10-14-hicache-12games-guard/README.md), which survived the full run. It never fired there, so no snippet ran away in that run.
 
 ## Why
 
 The [12-game run](../results/2026-10-13-hicache-12games-crashed/README.md) lost its model server after 2.1 hours: `scheduler_0 ... crashed with exit code -9`, a SIGKILL from outside the process.
 
 The notebook's `[sys]` lines from that run:
-- RAM used rose from 136.5 to 148.4 of 176.9 GiB over the run, about 5.7 GB an hour.
+- RAM used rose from 136.5 to 148.4 of 176.9 GiB. Run 3 showed this is a first-hour ramp, not steady growth.
 - The last line before the crash, 80 seconds earlier, still showed about 28 GB free.
 - After the crash, RAM in use fell to 5.2 GiB. The server held about 143 GB of the 148; the harness and everything else held about 5 GB.
 

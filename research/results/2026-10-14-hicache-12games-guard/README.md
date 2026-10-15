@@ -39,7 +39,7 @@ The server log confirms the settings: `max_running_requests: 12`, `hicache_size:
    - 52.38 is 6.0 points over the 10-game mean.
    - Treating the four 10-game runs as the spread of one run, the chance of a score this high by luck is about 3% (t = 3.8, 3 degrees of freedom).
    - The paired per-game comparison is noisier. Against the 10-12 run it gives +4.7 with a standard error of 3.9, because single games swing a lot between passes. Most of the gain is four games (m0r0, cd82, vc33, r11l) that had one bad pass before and two good ones here. Three games went the other way (sp80, s5i5, ls20).
-4. **Guard lines:** not yet seen. They are in the notebook log, not in these files.
+4. **Guard lines:** the guard was on (`kernel accepted oom_score_adj=1000` at start-up) and **never fired**. No snippet ran away in this run, so it neither confirms nor rules out runaway snippets as run 2's cause.
 
 ## Over time
 
@@ -58,10 +58,31 @@ Both 12-game runs were about 4 points ahead at two hours (30.3 and 29.6, against
 
 **Best estimate:** a real gain of a few points locally, size uncertain (roughly +1 to +7). A hidden-set submission is the next test.
 
-## Before submitting
+## Memory (from the notebook's `[sys]` lines)
 
-**Machine memory is the one open risk.** A competition run lasts about 9 hours, not 4, and keeps all 110 games live.
-- In the crashed 12-game run, RAM in use rose about 5.7 GB an hour.
-- If that kept up for 9 hours, the machine would run out at about hour 7.
-- The 10-game submission with the same 32 GB cache ran the full 9 hours. That suggests the growth levels off, but this run's `[sys]` lines are needed to check.
-- The guard doesn't help if the growth is inside the server.
+The lines are in [`notebook-sys-lines.txt`](notebook-sys-lines.txt). "Harness" is the notebook process; "server" is everything else, nearly all of it the model server.
+
+| hours into the run | RAM in use (of 176.9 GiB) | harness | server and rest |
+|---|---|---|---|
+| 0.0 | 136.5 | 0.3 | 136.2 |
+| 0.5 | 146.9 | 1.0 | 145.9 |
+| 1.0 | 145.9 | 1.6 | 144.3 |
+| 2.0 | 147.0 | 2.6 | 144.4 |
+| 3.0 | 148.4 | 3.4 | 145.0 |
+| 4.0 | 149.6 | 4.2 | 145.4 |
+
+**Peak:** 151.9 at 3.9 hours, leaving 25 GB free.
+
+**Reading.**
+- **The server ramps up by about 10 GB in its first half hour, then stays flat** at about 145.
+- **The harness grows steadily,** about 0.8 GB an hour.
+- **Total growth after the first hour:** about 1.1 GB an hour.
+- **The crashed run fits this pattern.** Its rise from 136.5 to 148.4 was the same first-hour ramp, not a steady 5.7 GB an hour. It then lost its server with about 28 GB free, so something sudden took the memory.
+
+**For a 9-hour competition run:**
+- Total use should reach about 155 GB. The harness could take a few GB more, since all 110 games are live.
+- Spikes like this run's 2–3 GB peak would take that to around 160. That leaves about 15 GB of margin.
+- This passes the check set before submitting:
+  - at halfway, 148.2;
+  - at the end, 148.7;
+  - under 155, and less than 5 higher than halfway.

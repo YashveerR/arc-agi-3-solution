@@ -34,7 +34,7 @@ The server log confirms all of these (`max_running_requests: 12`, `hicache_size:
 ## The `[sys]` lines (added 2026-10-14)
 
 The notebook's RAM monitor from this run:
-- RAM in use rose from 136.5 to 148.4 of 176.9 GiB, about 5.7 GB an hour.
+- RAM in use rose from 136.5 to 148.4 of 176.9 GiB. Run 3 later showed this is a ramp-up in the first hour followed by about 1 GB an hour, not a steady 5.7 GB an hour as first read ([memory in run 3](../2026-10-14-hicache-12games-guard/README.md#memory-from-the-notebooks-sys-lines)).
 - The last line, 80 seconds before the crash, still showed about 28 GB free.
 - After the crash, RAM in use fell to 5.2 GiB. So the server held about 143 GB, and the harness and everything else about 5 GB.
 
