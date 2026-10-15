@@ -20,8 +20,8 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 | Fresh start when stuck: clear a level's conversation after a token threshold | [`research/fresh_start/`](research/fresh_start/README.md) | tried at 60k on 2026-10-09: no measurable gain ([result](research/results/2026-10-09-fresh-start-60k/README.md)); removed from the harness, kept as a record |
 | Stuck review: at a token threshold per level, ask the model to re-test ideas it rejected with an unfair test; nothing is deleted | [`research/stuck_review/`](research/stuck_review/README.md) | A/B in one run on 2026-10-10: no effect ([result](research/results/2026-10-10-stuck-review-ab/README.md)); removed from the harness, kept as a record |
 | Admit 11 games at once instead of 10, so the GPU's idle slots get filled (server limit unchanged) | [`research/throughput/`](research/throughput/README.md) | tried 2026-10-11: 5% fewer tokens, cache overflowed ([result](research/results/2026-10-11-streams-11/README.md)); keep 10 |
-| System-RAM tier for the prompt cache (SGLang hierarchical cache, as in Lohit Siriki's notebook) | [`research/hicache/`](research/hicache/README.md) | 10 games on 2026-10-12: attached and stable, tokens +1%, score 47.66, but no fewer re-processed prompts ([result](research/results/2026-10-12-hicache-32g/README.md)); 12 games on 2026-10-13: +6% tokens, then the server was killed at 2.1 h ([result](research/results/2026-10-13-hicache-12games-crashed/README.md)); [run 3](research/hicache/run3.md) adds the sandbox guard |
-| Sandbox out-of-memory guard: each Python snippet volunteers as the first process Linux kills when RAM runs out, so a runaway snippet can't take the model server down; logs a line when it fires | [`research/sandbox_guard/`](research/sandbox_guard/README.md) | built and tested offline 2026-10-14; first Kaggle use in run 3 |
+| System-RAM tier for the prompt cache (SGLang hierarchical cache, as in Lohit Siriki's notebook) | [`research/hicache/`](research/hicache/README.md) | 10 games on 2026-10-12: attached and stable, tokens +1%, score 47.66, but no fewer re-processed prompts ([result](research/results/2026-10-12-hicache-32g/README.md)); 12 games on 2026-10-13: +6% tokens, then the server was killed at 2.1 h ([result](research/results/2026-10-13-hicache-12games-crashed/README.md)); with the sandbox guard on 2026-10-14: survived, score **52.38**, the best local run, tokens +4% ([result](research/results/2026-10-14-hicache-12games-guard/README.md)) |
+| Sandbox out-of-memory guard: each Python snippet volunteers as the first process Linux kills when RAM runs out, so a runaway snippet can't take the model server down; logs a line when it fires | [`research/sandbox_guard/`](research/sandbox_guard/README.md) | built and tested offline 2026-10-14; on in the 12-game run of 2026-10-14, which survived (whether it fired is not yet known) |
 
 ## Results
 
@@ -34,6 +34,7 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 | 2026-10-12 | 32 GB system-RAM prompt cache, 10 games | 25 × 2 | 47.7 | not submitted | [result](research/results/2026-10-12-hicache-32g/README.md) |
 | 2026-10-13 | RAM cache, 10 games (submitted version) | 25 × 2 | 44.5 | 28.48 | [result](research/results/2026-10-13-hicache-32g-submitted-version/README.md) |
 | 2026-10-13 | RAM cache, 12 games | 25 × 2 | crashed at 2.1 h (server killed, likely out of RAM); +6% tokens while running | not submitted | [result](research/results/2026-10-13-hicache-12games-crashed/README.md) |
+| 2026-10-14 | RAM cache, 12 games, sandbox guard | 25 × 2 | **52.4** | pending | [result](research/results/2026-10-14-hicache-12games-guard/README.md) |
 
 What the baseline shows:
 

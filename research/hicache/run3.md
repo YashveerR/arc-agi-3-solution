@@ -1,5 +1,7 @@
 # Run 3: 12 games with the RAM cache and the sandbox guard
 
+**Result (2026-10-14):** survived; score 52.38, the best local run; tokens 9.56M, short of the 9.7M bar. See the [result](../results/2026-10-14-hicache-12games-guard/README.md).
+
 [Run 2](run2.md) (12 games, 32 GB RAM cache) gave +6% generated tokens for two hours, then lost its model server ([result](../results/2026-10-13-hicache-12games-crashed/README.md)). Run 3 is the same notebook plus the [sandbox out-of-memory guard](../sandbox_guard/README.md), which makes a runaway Python snippet the process Linux kills instead of the server.
 
 ## Exact steps

@@ -4,6 +4,8 @@
 
 **Run 2 (2026-10-13, 12 games):** +6% tokens for 2.1 hours, then the server was killed, most likely by the out-of-memory killer ([result](../results/2026-10-13-hicache-12games-crashed/README.md)). [Run 3](run3.md) repeats it with the [sandbox guard](../sandbox_guard/README.md).
 
+**Run 3 (2026-10-14, 12 games + guard):** survived the full run; score 52.38, the best local run; tokens +4% ([result](../results/2026-10-14-hicache-12games-guard/README.md)).
+
 ## Why
 
 The GPU's prompt cache, the KV pool, limits throughput. Our evidence:

@@ -1,6 +1,6 @@
 # Sandbox out-of-memory guard
 
-**Status (2026-10-14):** built and tested offline. Next: a 12-game Kaggle run with it on ([run 3](../hicache/run3.md)).
+**Status:** built and tested offline (2026-10-14). On in the [12-game run of 2026-10-14](../results/2026-10-14-hicache-12games-guard/README.md), which survived the full run. Whether it fired is not yet known: that is in the notebook log.
 
 ## Why
 
