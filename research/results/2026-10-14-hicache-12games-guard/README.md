@@ -58,6 +58,11 @@ Both 12-game runs were about 4 points ahead at two hours (30.3 and 29.6, against
 
 **Best estimate:** a real gain of a few points locally, size uncertain (roughly +1 to +7). A hidden-set submission is the next test.
 
+**Hidden set (submitted 2026-10-15): 27.71.**
+- That is inside the band of the five 10-game scores (26.52–31.06, mean 28.6).
+- The local gain did not carry over visibly. Most of the +6 was probably luck on the 25 local games.
+- The competition run completed with the 12-game memory load. It is the first 9-hour test of this configuration.
+
 ## Memory (from the notebook's `[sys]` lines)
 
 The lines are in [`notebook-sys-lines.txt`](notebook-sys-lines.txt). "Harness" is the notebook process; "server" is everything else, nearly all of it the model server.
