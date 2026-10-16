@@ -4,6 +4,7 @@ This is Yashveer R's research fork of [Daniel Franzen's ARC-AGI-3 Milestone 2 so
 
 ## Credit
 
+- **lordhansolo** published the vLLM runtime, mixed NVFP4/FP8 checkpoint and setup step that [`research/vllm_server/`](research/vllm_server/README.md) runs under Franzen's harness.
 - **Tufa Labs** (Jeroen Cottaar and team) wrote the original Duck harness and the Tufa ARC-AGI Framework (TAAF): [Tufalabs/duck-harness](https://github.com/Tufalabs/duck-harness).
 - **Daniel Franzen** built the Milestone 2 solution this fork starts from, including the harness changes, compute scheduling and SGLang serving work. See his [write-up](WRITEUP.md).
 - Third-party code and model weights remain under their own licences. Franzen's repository is published under the Apache License 2.0 ([LICENSE](LICENSE)).
@@ -22,6 +23,7 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 | Admit 11 games at once instead of 10, so the GPU's idle slots get filled (server limit unchanged) | [`research/throughput/`](research/throughput/README.md) | tried 2026-10-11: 5% fewer tokens, cache overflowed ([result](research/results/2026-10-11-streams-11/README.md)); keep 10 |
 | System-RAM tier for the prompt cache (SGLang hierarchical cache, as in Lohit Siriki's notebook) | [`research/hicache/`](research/hicache/README.md) | 10 games on 2026-10-12: attached and stable, tokens +1%, score 47.66, but no fewer re-processed prompts ([result](research/results/2026-10-12-hicache-32g/README.md)); 12 games on 2026-10-13: +6% tokens, then the server was killed at 2.1 h ([result](research/results/2026-10-13-hicache-12games-crashed/README.md)); with the sandbox guard on 2026-10-14: survived, score **52.38**, the best local run, tokens +4% ([result](research/results/2026-10-14-hicache-12games-guard/README.md)) |
 | Sandbox out-of-memory guard: each Python snippet volunteers as the first process Linux kills when RAM runs out, so a runaway snippet can't take the model server down; logs a line when it fires | [`research/sandbox_guard/`](research/sandbox_guard/README.md) | built and tested offline 2026-10-14; on in the 12-game run of 2026-10-14, which survived; it never fired there |
+| lordhansolo's vLLM server (his packed runtime, mixed NVFP4/FP8 checkpoint with built-in MTP, watchdog) under Franzen's unchanged harness: about 40% more KV cache and 20% faster peak decode in his Milestone 2 log | [`research/vllm_server/`](research/vllm_server/README.md) | built and checked offline 2026-10-16 (fake-Kaggle simulation 15/15); first Kaggle run next |
 
 ## Results
 

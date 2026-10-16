@@ -5,9 +5,10 @@
 - [`stuck_review/`](stuck_review/README.md): the stuck-review checkpoint (A/B 2026-10-10, no effect, removed from the harness), kept as a record.
 - [`field-notes.md`](field-notes.md): what other teams report (leaderboard, Milestone 2 serving comparison, what failed for others), and what it implies for this fork.
 - [`time_curve.py`](time_curve.py): score, levels completed and generated tokens at each half hour of one or more runs, to compare runs over the time they share (including a crashed one). Usage: `python3 research/time_curve.py RUN [RUN ...] [--labels a,b]`.
-- [`serve_stats.py`](serve_stats.py): summarises a run's `serve.log` (cache capacity and use, requests generating, decode throughput, uncached prompt processing). Pass several logs to compare them. Usage: `python3 research/serve_stats.py serve.log [more]`.
+- [`serve_stats.py`](serve_stats.py): summarises a run's SGLang `serve.log` or vLLM `vllm-openai-server.log` (cache capacity and use, requests generating, decode throughput, uncached prompt processing). Pass several logs to compare them. Usage: `python3 research/serve_stats.py serve.log [more]`.
 - [`throughput/`](throughput/README.md): admitting 11 games at once (tried 2026-10-11: the cache overflowed, 5% fewer tokens; keep 10).
 - [`hicache/`](hicache/README.md): system-RAM tier for the prompt cache (snippet for Franzen's section 5, with criteria set before each run). 10 games: neutral and stable. 12 games: +6% tokens, then crashed; 12 games with the sandbox guard: survived, score 52.38.
+- [`vllm_server/`](vllm_server/README.md): lordhansolo's vLLM server as a replacement for Franzen's section 5, with the harness unchanged (cell, ported setup script, fake-Kaggle simulation, exact run steps and criteria).
 - [`sandbox_guard/`](sandbox_guard/README.md): makes a runaway Python snippet, not the model server, the process Linux kills when RAM runs out (notebook cell, patch and tests).
 - [`submissions.md`](submissions.md): log of daily Kaggle submissions and their public scores.
 - [`fresh_start/`](fresh_start/README.md): the fresh-start change (tried 2026-10-09, no gain, removed from the harness), kept as a record.

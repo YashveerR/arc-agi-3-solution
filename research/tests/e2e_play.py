@@ -58,14 +58,22 @@ def main() -> int:
     ap.add_argument("--stuck", action="store_true", help="never solve (for request comparisons)")
     ap.add_argument("--max-runtime-s", type=float, default=25.0)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--vllm-format", action="store_true",
+                    help="the stand-in answers in vLLM's format (reasoning under `reasoning`)")
+    ap.add_argument("--base-url", default="",
+                    help="use an already running server instead of starting the stand-in")
     args = ap.parse_args()
 
     os.environ.update(stub.NOTEBOOK_ENV)
     for item in args.env:
         key, _, value = item.partition("=")
         os.environ[key] = value
-    server, reqs, port = stub.serve(NEVER if args.stuck else "", 1)
-    os.environ["LOCAL_ANALYZER_BASE_URL"] = f"http://127.0.0.1:{port}/v1"
+    if args.base_url:
+        server, reqs = None, []
+        os.environ["LOCAL_ANALYZER_BASE_URL"] = args.base_url
+    else:
+        server, reqs, port = stub.serve(NEVER if args.stuck else "", 1, vllm_format=args.vllm_format)
+        os.environ["LOCAL_ANALYZER_BASE_URL"] = f"http://127.0.0.1:{port}/v1"
     os.environ["OPENAI_BASE_URL"] = os.environ["LOCAL_ANALYZER_BASE_URL"]
 
     import taaf.benchmark
@@ -88,12 +96,14 @@ def main() -> int:
     finally:
         done.set()
         watcher.join(timeout=2)
-    server.shutdown()
+    if server is not None:
+        server.shutdown()
     with (args.out / "requests.jsonl").open("w") as f:
         for r in reqs:
             f.write(json.dumps(r) + "\n")
     run = bench.game_runs[0]
-    summary = {"env": args.env, "stuck": args.stuck, "requests": len(reqs), "state": run.state,
+    summary = {"env": args.env, "stuck": args.stuck, "vllm_format": args.vllm_format, "base_url": args.base_url,
+               "requests": len(reqs), "state": run.state,
                "levels_completed": run.levels_completed, "solver_note": run.solver_note,
                "sandbox_oom_scores_seen": sorted(seen)}
     print(json.dumps(summary, indent=2))

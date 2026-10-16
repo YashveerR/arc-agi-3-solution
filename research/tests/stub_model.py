@@ -122,8 +122,14 @@ def has_trigger(body: dict, trigger: str) -> bool:
     return any(trigger in text_of(m) for m in body.get("messages") or [] if m.get("role") == "user")
 
 
-def serve(trigger: str, stuck_from_level: int) -> tuple[ThreadingHTTPServer, list[dict], int]:
-    """Start the stand-in server on a free port. Returns (server, request log, port)."""
+def serve(trigger: str, stuck_from_level: int, *, port: int = 0, vllm_format: bool = False,
+          model_name: str = "flashnext") -> tuple[ThreadingHTTPServer, list[dict], int]:
+    """Start the stand-in server (on a free port unless one is given).
+    Returns (server, request log, port).
+
+    vllm_format answers the way vLLM does rather than SGLang: the reasoning
+    under `reasoning` instead of `reasoning_content`, and cached prompt tokens
+    under usage.prompt_tokens_details."""
     log: list[dict] = []
     lock = threading.Lock()
     stuck = stuck_code(stuck_from_level)
@@ -141,7 +147,7 @@ def serve(trigger: str, stuck_from_level: int) -> tuple[ThreadingHTTPServer, lis
             self.wfile.write(data)
 
         def do_GET(self):
-            self._send({"object": "list", "data": [{"id": "flashnext", "object": "model"}]})
+            self._send({"object": "list", "data": [{"id": model_name, "object": "model"}]})
 
         def do_POST(self):
             length = int(self.headers.get("Content-Length") or 0)
@@ -156,14 +162,15 @@ def serve(trigger: str, stuck_from_level: int) -> tuple[ThreadingHTTPServer, lis
                 "id": f"stub-{index}",
                 "object": "chat.completion",
                 "created": 0,
-                "model": "flashnext",
+                "model": model_name,
                 "choices": [{
                     "index": 0,
                     "finish_reason": "tool_calls",
                     "message": {
                         "role": "assistant",
                         "content": "",
-                        "reasoning_content": "stub reasoning: " + ("solve" if solve else "stuck"),
+                        ("reasoning" if vllm_format else "reasoning_content"):
+                            "stub reasoning: " + ("solve" if solve else "stuck"),
                         "tool_calls": [{
                             "id": f"call_{index}",
                             "type": "function",
@@ -175,10 +182,11 @@ def serve(trigger: str, stuck_from_level: int) -> tuple[ThreadingHTTPServer, lis
                     "prompt_tokens": prompt_tokens,
                     "completion_tokens": TOKENS_PER_REPLY,
                     "total_tokens": prompt_tokens + TOKENS_PER_REPLY,
+                    **({"prompt_tokens_details": {"cached_tokens": prompt_tokens // 2}} if vllm_format else {}),
                 },
             })
 
-    port = free_port()
+    port = port or free_port()
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server, log, port
