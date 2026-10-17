@@ -67,9 +67,9 @@ From `vllm-openai-server.log` ([`serve_stats.py`](../../serve_stats.py)):
 | prompt tokens processed (not cached) | **38.1M** | 20.7M | 25.2M |
 | preemptions / retractions | 0 | 1 | 2 |
 
-- **Gaps in decode statistics.** The vLLM numbers start once the server is up. Requests generating fall from 13.7 in the first half hour to 8.9 in the last, as games finish.
+- **Load over the run.** Requests generating fall from 13.7 in the first half hour to 8.9 in the last, as games finish.
 - **Prompt re-processing.** vLLM processes about 1.5 to 1.8 times as many prompt tokens from scratch as SGLang did, despite a prefix-cache hit rate of about 91%. That is prefill time not spent decoding, and a possible lever: the 2,048-token prefill chunk, the 128-token cache unit, and 14 games on one cache.
-- **MTP draft acceptance:** 2.70 tokens per step on average (the first and last 3 draft tokens included).
+- **MTP draft acceptance:** 2.70 tokens per verification step on average, out of a possible 4 (3 drafted tokens plus the one the model always adds).
 
 ## Memory (from the `[sys]` lines)
 
