@@ -1,6 +1,6 @@
 # lordhansolo's vLLM server under Franzen's harness
 
-**Status (2026-10-16):** built and checked offline. A first Kaggle run comes next ([steps below](#exact-steps)).
+**Status:** first Kaggle run on 2026-10-17 passed all four criteria: KV cache 1,414,036 tokens, no restart, 10.7M tokens (+27% at equal play time), score 48.71 ([result](../results/2026-10-17-vllm-14games/README.md)). The server took 26 minutes to start on a cold disk. Next: a submission, once the memory check passes.
 
 ## Why
 
