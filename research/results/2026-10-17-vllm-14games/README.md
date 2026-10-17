@@ -9,13 +9,15 @@
 
 **Files:**
 - `benchmark.json`;
-- `report.md` and `levels.csv`, from `audit_run.py`.
-
-The vLLM logs (`vllm-openai-server.log`, `vllm-watchdog.log`, `vllm-setup.log`) are still to be added.
+- `report.md` and `levels.csv`, from `audit_run.py`;
+- `vllm-openai-server.log.gz`, `vllm-setup.log` and `vllm-watchdog.log`;
+- `notebook-sys-lines.txt`: the RAM monitor and section-5 lines from the notebook log.
 
 ## Start-up
 
-- **The setup ran 1,546 s**, about 26 minutes. That's a cold read of the 168 GiB checkpoint; lordhansolo's logged run took about 8 minutes.
+- **The setup ran 1,546 s**, about 26 minutes. lordhansolo's logged run took about 8 minutes. Both slow parts are reads from Kaggle's input storage:
+  - **runtime unpack:** 382 s, against 135 s in his run;
+  - **weight load:** about 17 minutes from the first kernel line to the KV-cache line (14:01:51 to 14:18:50), against about 5.4 minutes in his run.
 - **The notebook's 12-minute deadline released the games** while the server was still loading, and they waited on the 40-minute first-request grace as designed.
 - **Play began 14.1 minutes into the benchmark,** against about 0 for the SGLang runs, whose server was ready before the benchmark started.
 - **KV cache: 1,414,036 tokens,** against Franzen's 1,011,264. The smoke test passed.
@@ -27,7 +29,7 @@ The vLLM logs (`vllm-openai-server.log`, `vllm-watchdog.log`, `vllm-setup.log`) 
 | criterion | bar | result |
 |---|---|---|
 | KV cache | at least 1.3M tokens | **1,414,036**: pass |
-| stable | no server restart, no failed model calls | pass. The longest pause between any two actions after play began was 47 s; a restart means a reload of many minutes. No game note reports failed model calls. |
+| stable | no server restart, no failed model calls | pass. The watchdog log has only the first start (`restart 0`). The longest pause between any two actions after play began was 47 s. No game note reports failed model calls. |
 | throughput | at least 10.5M generated tokens | **10.7M**: pass, despite 14 minutes less play |
 | quality | score at least 44 | **48.71**: pass |
 
@@ -52,8 +54,43 @@ The vLLM run is shifted by its 14.1-minute late start. Each cell is mean score /
 - **No sign that the NVFP4/FP8 checkpoint plays worse.** It completed the most levels of any run. Median actions per completed level were 0.72× the human baseline, against 0.61–0.71 in the seven earlier runs; that is the top of the usual range, not outside it.
 - **The score gain is smaller than the token gain suggests.** By the earlier rule of 2–3 points per 10% more tokens, +27% would be about +6. One run can't tell whether the checkpoint or the noise accounts for the difference.
 
+## Server
+
+From `vllm-openai-server.log` ([`serve_stats.py`](../../serve_stats.py)):
+
+| | vLLM, 14 games | SGLang, 10 games (10-13) | SGLang, 12 games (10-14) |
+|---|---|---|---|
+| requests generating (mean) | 12.19 of 14 | 8.89 of 10 | 10.50 of 12 |
+| mean generation tokens/s | **777** | 678 | 723 |
+| at every slot busy | 884 | 783 | 837 |
+| KV used, mean / max | 0.71 / 1.00 | 0.66 / 0.96 | 0.81 / 1.00 |
+| prompt tokens processed (not cached) | **38.1M** | 20.7M | 25.2M |
+| preemptions / retractions | 0 | 1 | 2 |
+
+- **Gaps in decode statistics.** The vLLM numbers start once the server is up. Requests generating fall from 13.7 in the first half hour to 8.9 in the last, as games finish.
+- **Prompt re-processing.** vLLM processes about 1.5 to 1.8 times as many prompt tokens from scratch as SGLang did, despite a prefix-cache hit rate of about 91%. That is prefill time not spent decoding, and a possible lever: the 2,048-token prefill chunk, the 128-token cache unit, and 14 games on one cache.
+- **MTP draft acceptance:** 2.70 tokens per step on average (the first and last 3 draft tokens included).
+
+## Memory (from the `[sys]` lines)
+
+| hours of serving | RAM in use (of 176.9 GiB) | harness | server and rest |
+|---|---|---|---|
+| 0.0 | 141.6 | 0.3 | 141.3 |
+| 0.5 | 147.1 | 1.1 | 146.0 |
+| 1.1 | 148.3 | 2.0 | 146.3 |
+| 2.1 | 150.2 | 3.3 | 146.9 |
+| 3.2 | 151.2 | 4.3 | 146.9 |
+| 3.8 | 152.9 | 5.0 | 147.9 |
+
+- **The same pattern as SGLang:** the server settles at about 147 within the first hour, and the harness grows about 1 GB an hour.
+- **One spike:** 156.2 at 4,209 s, about 9 GB above its neighbours for one sample. That is most likely a Python snippet; the guard would take it first if RAM ran out.
+- **The pre-submission check passes:** halfway 150.2, last 152.9 (under 155, and less than 5 higher).
+- **A 9-hour competition run** projects to about 157 GB, plus spikes.
+
 ## Next
 
-**Submit this exact version,** once the memory check passes. A competition run lasts 9 hours, so RAM growth over the full 4-hour local run has to be checked first; the `[sys]` lines from the notebook log show it.
+**Submit this exact version:** the memory check passes.
 
-**The start-up costs about 26 of the competition's ~540 minutes,** about 5%. Warming the checkpoint before the server starts could cut that; it is the next change to test.
+**Then, in order:**
+1. **Start-up** costs about 26 of the competition's ~540 minutes, about 5%. Both slow parts are storage reads, and lordhansolo measured parallel reads of the same storage at 4 to 6 times the speed of a single stream. Reading the runtime blobs and weight shards in parallel threads from the start of the notebook could cut that.
+2. **Prompt re-processing** (38M tokens against SGLang's 21 to 25M): test a larger prefill chunk.

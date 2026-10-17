@@ -3,7 +3,8 @@
     python3 research/serve_stats.py path/to/serve.log [more logs ...]
 
 Reads SGLang's serve.log (Franzen's server) and vLLM's vllm-openai-server.log
-(lordhansolo's server, research/vllm_server/); the format is detected per file.
+(lordhansolo's server, research/vllm_server/), plain or gzipped; the format is
+detected per file.
 
 For each log, prints in markdown:
   - KV-cache capacity and how full it got, per half hour
@@ -15,12 +16,20 @@ Several logs are summarised side by side in a final comparison table.
 """
 from __future__ import annotations
 
+import gzip
 import re
 import statistics as st
 import sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
+
+def _open(path: Path):
+    """Text lines of a log, gzipped (.gz, as stored in research/results) or not."""
+    if path.suffix == ".gz":
+        return gzip.open(path, "rt", errors="replace")
+    return path.open(errors="replace")
+
 
 _LINE = re.compile(r"\[(\S+ \S+)\] (Decode|Prefill) batch, (.*)")
 _FIELD = re.compile(r"([#a-z ()/-]+?): ([0-9.]+|True|False)")
@@ -29,7 +38,7 @@ _FIELD = re.compile(r"([#a-z ()/-]+?): ([0-9.]+|True|False)")
 def _parse(path: Path) -> dict:
     decode, prefill = [], []
     capacity = max_running = None
-    for line in path.open(errors="replace"):
+    for line in _open(path):
         if capacity is None:
             m = re.search(r"max_total_num_tokens=(\d+)", line)
             if m:
@@ -62,7 +71,7 @@ def _parse_vllm(path: Path) -> dict:
     rows, accept = [], []
     capacity = max_running = None
     year = datetime.now().year
-    for line in path.open(errors="replace"):
+    for line in _open(path):
         if capacity is None:
             m = re.search(r"KV cache size: ([0-9,]+) tokens", line)
             if m:

@@ -1,0 +1,32 @@
+vLLM runtime dataset path: /kaggle/input/datasets/lordhansolo/arc3-vllm-e975732-gdn-recoverssm
+Qwen model path: /kaggle/input/models/lordhansolo/qwen3-8-flash-next-mixed-nvfp4-fp8/pytorch/hf-mixed-mtp-nvfp4/1
+CUDA GPU check passed for rtx-pro-6000 x1: ['NVIDIA RTX PRO 6000 Blackwell Server Edition']
+Extracted runtime layer 8 (layer-8-2ad688ad8f3fbdc0e29a5a21ddea124600b392545a866f9db538195351dff10a.tar.gz.blob) after 76s
+Extracted runtime layer 20 (layer-20-f92f65ffb2696d83c5f3ea329213e2c629ffed56376d4fcca7782e4605fb0441.tar.gz.blob) after 323s
+Extracted runtime layer 21 (layer-21-27b27fc876db93752ff9b94b8c4dae4662379ee77eb52cf8f2347b5bf492544d.tar.gz.blob) after 366s
+Extracted runtime layer 24 (layer-24-f6c32c2c4fff55d3657fb6c62d9c9f46fe6bbf9aa3836675da4ecc1ab91aae94.tar.gz.blob) after 368s
+Extracted runtime layer 27 (layer-27-e8543d6b6369f2c08ebeb30e63b0439b4c1c9fdb2fbe938ccf5cd91cfc31b5c6.tar.gz.blob) after 381s
+Extracted runtime layer 31 (layer-31-ba8c03537df96f1c9d29411e88c62b307fb290b09da5f3f9f950100f5173e8fd.tar.gz.blob) after 382s
+Runtime patch arc3_vllm_main_e975732_gdn_recoverssm_overlay.tar.blob: ARC3 main-e975732 GDN RecoverSSM overlay installed=25, already-patched=0
+Image runtime ready at /tmp/vllm-image-runtime: vLLM 0.29.1rc1.dev573+ge97573215, torch 2.13.0+cu130
+Starting vLLM OpenAI server: /usr/bin/python3 -m vllm.entrypoints.cli.main serve /kaggle/input/models/lordhansolo/qwen3-8-flash-next-mixed-nvfp4-fp8/pytorch/hf-mixed-mtp-nvfp4/1 --served-model-name flashnext --host 127.0.0.1 --port 8001 --load-format safetensors --dtype bfloat16 --tensor-parallel-size 1 --distributed-executor-backend mp --max-model-len 147072 --max-num-seqs 14 --max-num-batched-tokens 2048 --async-scheduling --enable-chunked-prefill --max-cudagraph-capture-size 56 --enable-prefix-caching --enable-auto-tool-choice --tool-call-parser qwen3_coder --reasoning-parser qwen3 --generation-config vllm --engram-config {"cpu_offload": true} --cpu-offload-params embed_tokens --mm-processor-kwargs {"max_pixels": 409600} --limit-mm-per-prompt {"video": 0} --default-chat-template-kwargs {"preserve_thinking": true} --quantization compressed-tensors --prefix-match-unit 128 --prefix-cache-retention-interval 0 --speculative-config {"method": "mtp", "num_speculative_tokens": 3, "use_local_argmax_reduction": true} --gpu-memory-utilization 0.98 --kv-cache-dtype fp8_e4m3 --attention-config {"indexer_kv_dtype": "fp8"} --mamba-ssm-cache-dtype bfloat16 --chat-template /kaggle/input/models/lordhansolo/qwen3-8-flash-next-mixed-nvfp4-fp8/pytorch/hf-mixed-mtp-nvfp4/1/chat_template.jinja --enable-prompt-tokens-details
+vLLM server ready: {'object': 'list', 'data': [{'id': 'flashnext', 'object': 'model', 'created': 1792246806, 'owned_by': 'vllm', 'root': '/kaggle/input/models/lordhansolo/qwen3-8-flash-next-mixed-nvfp4-fp8/pytorch/hf-mixed-mtp-nvfp4/1', 'parent': None, 'max_model_len': 147072, 'permission': [{'id': 'modelperm-a8cb88c238008b0a', 'object': 'model_permission', 'created': 1792246806, 'allow_create_engine': False, 'allow_sampling': True, 'allow_logprobs': True, 'allow_search_indices': False, 'allow_view': True, 'allow_fine_tuning': False, 'organization': '*', 'group': None, 'is_blocking': False}]}]}
+
+========================================================================================
+VLLM ATTENTION BACKEND / KV CACHE SUMMARY
+(Worker pid=1388) INFO 10-17 14:01:51 [cuda.py:595] Using backend AttentionBackendEnum.FLASH_ATTN for vit attention
+(Worker pid=1388) INFO 10-17 14:01:51 [mm_encoder_attention.py:372] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+(Worker pid=1388) INFO 10-17 14:01:51 [__init__.py:758] Selected CutlassFP8ScaledMMLinearKernel for CompressedTensorsW8A8Fp8
+(Worker pid=1388) INFO 10-17 14:01:51 [qwen_gdn_linear_attn.py:183] Using FlashInfer GDN prefill kernel (requested=auto, head_k_dim=128).
+(EngineCore pid=1128) INFO 10-17 14:18:50 [utils.py:320] Using BLNHC KV cache layout.
+(Worker pid=1388) INFO 10-17 14:19:14 [speculator.py:119] Fused multi-step draft decode is not supported by attention backend(s) QWEN4_EXP_EXP_QSA_STATE; falling back to rebuilding attention metadata between draft steps.
+(EngineCore pid=1128) INFO 10-17 14:19:26 [kv_cache_utils.py:2485] GPU KV cache size: 1,414,036 tokens, Maximum concurrency for 147,072 tokens per request: 9.61x
+========================================================================================
+
+
+========================================================================================
+VLLM OPENAI SERVER QWEN SMOKE TEST REAL MODEL OUTPUT
+Generated: 2 + 2 equals 4.
+========================================================================================
+
+ARC3V: vLLM setup finished; the server stays up under its watchdog
