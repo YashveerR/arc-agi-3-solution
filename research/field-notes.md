@@ -50,6 +50,13 @@ Gathered 2026-10-12 from Kaggle discussion threads (pasted in by hand, since the
 - **Yi-Chia Chen (1st):** "excited to see how high a score people can achieve by combining these three winning notebooks!"
 - **Nhan Duc Nguyen (10th):** the public notebooks share the same inference improvements, so the next phase is likely harness work or a new open model.
 
+## Our own finding: the Milestone 2 gap is mostly the serving stack (2026-10-18)
+
+- Franzen's harness on lordhansolo's vLLM server and mixed NVFP4/FP8 checkpoint scored **23.35** on the hidden set. lordhansolo's own harness on that stack scored 23.84.
+- Franzen's harness on his own SGLang server and W4A16 AutoRound checkpoint averages 28.5.
+- So the quantization or server, not the harness, accounts for most of the 27.89 against 23.84 gap in Milestone 2.
+- Locally the same stack looked better: +27% tokens, and 48.71 against 44.9 at equal play time. See the [result](results/2026-10-17-vllm-14games/README.md).
+
 ## What did not work for others
 
 **Fine-tuning, in any form, on this hardware and timeline.**

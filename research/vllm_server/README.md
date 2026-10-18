@@ -1,6 +1,6 @@
 # lordhansolo's vLLM server under Franzen's harness
 
-**Status:** first Kaggle run on 2026-10-17 passed all four criteria: KV cache 1,414,036 tokens, no restart, 10.7M tokens (+27% at equal play time), score 48.71 ([result](../results/2026-10-17-vllm-14games/README.md)). The server took 26 minutes to start on a cold disk. Next: a submission, once the memory check passes.
+**Status: dropped.** Locally the first Kaggle run passed all four criteria: 10.7M tokens (+27% at equal play time) and a score of 48.71. On the hidden set it scored **23.35**, against 26.5–31.1 for Franzen's setup. lordhansolo's own Milestone 2 entry on this stack scored 23.84. The checkpoint most likely plays worse on unseen games ([result](../results/2026-10-17-vllm-14games/README.md)). Kept as a record.
 
 ## Why
 

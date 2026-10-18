@@ -87,10 +87,27 @@ From `vllm-openai-server.log` ([`serve_stats.py`](../../serve_stats.py)):
 - **The pre-submission check passes:** halfway 150.2, last 152.9 (under 155, and less than 5 higher).
 - **A 9-hour competition run** projects to about 157 GB, plus spikes.
 
+## Hidden set (submitted 2026-10-17): 23.35
+
+**This is a clear loss.**
+- The six Franzen-setup submissions scored 26.52–31.06 (mean 28.5, sd 1.6), and 23.35 is 3.3 standard deviations below that mean. As a prediction for one more submission of the same setup, a score this low comes about 3% of the time (t = −3.1, 5 degrees of freedom).
+- **lordhansolo's own Milestone 2 entry, on this server and checkpoint with his own harness, scored 23.84.** Ours, with Franzen's harness, scored 23.35. Franzen's harness on Franzen's server scored 27.89 in Milestone 2 and 28.5 on average since.
+- **So the stack, not the harness, explains most of the Milestone 2 gap** between Franzen and lordhansolo.
+
+**Likeliest cause: the checkpoint plays worse on games it hasn't seen.**
+- The mixed NVFP4/FP8 quantization is coarser than Franzen's W4A16 AutoRound. A small loss of reasoning quality compounds over thousands of turns, and the hidden games are new.
+- **On the 25 public games it didn't show:** 48.71 locally, with the most levels of any run.
+- The ratio of hidden to local score fell from 0.62 (Franzen's setup) to 0.48.
+
+**Not ruled out:**
+- **A slower cold start in the competition run.** If the server took longer than the 40-minute grace, the first 14 games admitted would have failed. That alone would cost about 13% of the score (about 25 instead of 28.5), so it can't explain the whole drop on its own, and lordhansolo's 23.84 had no such failure mode.
+- **Sampling defaults.** This setup used vLLM's built-in defaults instead of the model's generation config, because the cell found the tokenizers differed. The harness sets temperature, top-p and top-k itself, so this is unlikely to matter much.
+
+## Lessons
+
+1. **The 25 public games do not predict the hidden set,** and twice now a local gain has reversed: 52.38 locally and 27.71 hidden (12 games), then 48.71 and 23.35 (this run). Local runs are good for catching crashes, memory trouble and speed; only submissions measure score.
+2. **More tokens don't help if each token is worth less.** +27% tokens came with about −5 points.
+
 ## Next
 
-**Submit this exact version:** the memory check passes.
-
-**Then, in order:**
-1. **Start-up** costs about 26 of the competition's ~540 minutes, about 5%. Both slow parts are storage reads, and lordhansolo measured parallel reads of the same storage at 4 to 6 times the speed of a single stream. Reading the runtime blobs and weight shards in parallel threads from the start of the notebook could cut that.
-2. **Prompt re-processing** (38M tokens against SGLang's 21 to 25M): test a larger prefill chunk.
+**Drop this stack.** Go back to Franzen's SGLang setup (10 or 12 games, RAM cache, sandbox guard), which has been stable on the hidden set (six scores, 26.5 to 31.1).

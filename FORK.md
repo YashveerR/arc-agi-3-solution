@@ -23,7 +23,7 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 | Admit 11 games at once instead of 10, so the GPU's idle slots get filled (server limit unchanged) | [`research/throughput/`](research/throughput/README.md) | tried 2026-10-11: 5% fewer tokens, cache overflowed ([result](research/results/2026-10-11-streams-11/README.md)); keep 10 |
 | System-RAM tier for the prompt cache (SGLang hierarchical cache, as in Lohit Siriki's notebook) | [`research/hicache/`](research/hicache/README.md) | 10 games on 2026-10-12: attached and stable, tokens +1%, score 47.66, but no fewer re-processed prompts ([result](research/results/2026-10-12-hicache-32g/README.md)); 12 games on 2026-10-13: +6% tokens, then the server was killed at 2.1 h ([result](research/results/2026-10-13-hicache-12games-crashed/README.md)); with the sandbox guard on 2026-10-14: survived, score **52.38**, the best local run, tokens +4% ([result](research/results/2026-10-14-hicache-12games-guard/README.md)) |
 | Sandbox out-of-memory guard: each Python snippet volunteers as the first process Linux kills when RAM runs out, so a runaway snippet can't take the model server down; logs a line when it fires | [`research/sandbox_guard/`](research/sandbox_guard/README.md) | built and tested offline 2026-10-14; on in the 12-game run of 2026-10-14, which survived; it never fired there |
-| lordhansolo's vLLM server (his packed runtime, mixed NVFP4/FP8 checkpoint with built-in MTP, watchdog) under Franzen's unchanged harness: about 40% more KV cache and 20% faster peak decode in his Milestone 2 log | [`research/vllm_server/`](research/vllm_server/README.md) | first Kaggle run 2026-10-17: stable, 10.7M tokens (+27% at equal play time over 10 games on SGLang), score 48.71 ([result](research/results/2026-10-17-vllm-14games/README.md)); 26-minute cold start |
+| lordhansolo's vLLM server (his packed runtime, mixed NVFP4/FP8 checkpoint with built-in MTP, watchdog) under Franzen's unchanged harness: about 40% more KV cache and 20% faster peak decode in his Milestone 2 log | [`research/vllm_server/`](research/vllm_server/README.md) | 2026-10-17: locally stable, +27% tokens, score 48.71; **hidden set 23.35**, well below Franzen's 26.5–31.1 ([result](research/results/2026-10-17-vllm-14games/README.md)); dropped |
 
 ## Results
 
@@ -37,7 +37,7 @@ Changes are kept on the `research` branch and listed here as they land, each wit
 | 2026-10-13 | RAM cache, 10 games (submitted version) | 25 × 2 | 44.5 | 28.48 | [result](research/results/2026-10-13-hicache-32g-submitted-version/README.md) |
 | 2026-10-13 | RAM cache, 12 games | 25 × 2 | crashed at 2.1 h (server killed, likely out of RAM); +6% tokens while running | not submitted | [result](research/results/2026-10-13-hicache-12games-crashed/README.md) |
 | 2026-10-14 | RAM cache, 12 games, sandbox guard | 25 × 2 | **52.4** | 27.71 (within the usual 26.5–31.1) |
-| 2026-10-17 | lordhansolo's vLLM server, 14 games, sandbox guard (play started 14 min late) | 25 × 2 | 48.7 | pending | [result](research/results/2026-10-17-vllm-14games/README.md) | [result](research/results/2026-10-14-hicache-12games-guard/README.md) |
+| 2026-10-17 | lordhansolo's vLLM server, 14 games, sandbox guard (play started 14 min late) | 25 × 2 | 48.7 | **23.35** | [result](research/results/2026-10-17-vllm-14games/README.md) | [result](research/results/2026-10-14-hicache-12games-guard/README.md) |
 
 What the baseline shows:
 

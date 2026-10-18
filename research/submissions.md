@@ -8,6 +8,7 @@ One submission per day. Each score is one run on the public half of the hidden g
 | 2026-10-11 | Franzen's notebook, unchanged | 29.29 | 561 |
 | 2026-10-13 | Franzen + 32 GB system-RAM cache, 10 games (neutral; a stability check) | 28.48 | |
 | 2026-10-15 | 12 games + 32 GB RAM cache + sandbox guard (best local run, 52.38) | 27.71 | |
+| 2026-10-17 | lordhansolo's vLLM server and NVFP4/FP8 checkpoint, 14 games, Franzen's harness (local 48.71) | **23.35** | |
 
 **Reference: Franzen's own scores** for the same notebook were 27.89 (his Milestone 2 entry) and 31.06 (his best).
 
@@ -16,3 +17,5 @@ One submission per day. Each score is one run on the public half of the hidden g
 - Mean 28.5, standard deviation about 1.6.
 - The 28.48 entry includes the RAM cache, which is neutral at 10 games.
 - The 27.71 entry is 12 games. Its local gain (+6 points) did not show on the hidden set. If the true gain were +3 there, a score this low would be about a 1-in-100 draw. A gain of about 1 point is still plausible.
+
+**The vLLM stack scored 23.35,** 3.3 standard deviations below the Franzen-setup mean. That's close to lordhansolo's own 23.84 on the same stack. Local runs over-predicted it, as they did for 12 games.
