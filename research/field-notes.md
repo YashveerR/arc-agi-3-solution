@@ -57,6 +57,34 @@ Gathered 2026-10-12 from Kaggle discussion threads (pasted in by hand, since the
 - So the quantization or server, not the harness, accounts for most of the 27.89 against 23.84 gap in Milestone 2.
 - Locally the same stack looked better: +27% tokens, and 48.71 against 44.9 at equal play time. See the [result](results/2026-10-17-vllm-14games/README.md).
 
+## Forum threads pasted 2026-10-19
+
+**"What are your agents scoring on the 25 public games?"** (Reki)
+- **Everyone sees local gains fail to carry over.** Examples:
+  - Fususu: 22.26 locally, 5.37 on the leaderboard.
+  - Scott Le Grand: 11.04 locally, 2.71.
+  - Nick Pellegrin: "doing better on the public set ... correlates to weaker private scores".
+  - Giang Rita: "I do not believe in scores anymore".
+- **CPMP (10th):** "We achieved 100% months ago on 25 public games ... any number not from the competition leaderboard is irrelevant."
+- **Son Pham (3rd):** submit early. Local games miss "resource constraints, harder games, new mechanics".
+- **Scott Le Grand:** the stock Duck client on NVFP4 with 16 sequences "will get you to the brink of the top 10%, but all of my harness engineering beyond that has been utterly useless". He calls the final ranking a lottery ticket: the two selected submissions are scored on the other 55 hidden games.
+- **Mark Barney (3rd):** about seven of the public games ("the Slippery Seven") are extremely hard for every current solution.
+
+**"Which is a better choice for training, Qwen3.8-27B or Qwen3.8-Flash-Next?"** (Slow∞Loop, 3rd)
+- **The top teams train.**
+  - Slow∞Loop trains Qwen3.8-27B with SFT and RL, because Flash-Next's mixture-of-experts makes training unstable. Scores grow slowly.
+  - For Flash-Next he uses QLoRA 4-bit, FSDP2 and PLE CPU offload on 2 × 96 GB GPUs.
+- **Scott Le Grand:** +2 points on the public games from SFT on 27B; nothing from Flash-Next. He is running RL on a borrowed B300, with a dense reward: the maximum score still attainable from the current state.
+
+**"Things Claude Code has said"** (Scott Le Grand): speculation only.
+- Yi-Chia Chen, 1st, is said to distil into a smaller model, and may have much more compute.
+- Her earlier AIMO write-up is recommended reading.
+
+**What this means for this fork:**
+- **Training is out of reach on Kaggle's weekly GPU quota.** The top teams train on outside hardware.
+- **Our finding matches the forum:** only submissions measure score.
+- **Within one submission, the public and private scores come from the same 9-hour run on 110 games.** Run-wide problems (a slow start, a crash) hit both halves alike. So among submissions of one configuration, the higher public score is a slightly better pick, even though game-level luck is independent between the halves.
+
 ## What did not work for others
 
 **Fine-tuning, in any form, on this hardware and timeline.**
